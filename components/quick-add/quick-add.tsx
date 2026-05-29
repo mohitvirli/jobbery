@@ -83,7 +83,7 @@ export function QuickAdd({
 
   const resolvedCompany =
     company.trim() || (!isUrl ? raw.trim() : regex?.company ?? '')
-  const canSubmit = resolvedCompany.length > 0 && !submitting
+  const canSubmit = resolvedCompany.length > 0 && !submitting && !fetching
   const hasInput = raw.trim().length > 0
   // Metadata came back clean — colour the submit button green as a success cue.
   const fetchedOk = isUrl && fetched?.source === 'metadata'
