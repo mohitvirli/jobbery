@@ -159,7 +159,7 @@ export async function GET(req: Request): Promise<Response> {
         await assertPublicHost(current.hostname)
         res = await fetch(current.toString(), {
           signal: ac.signal,
-          headers: { 'user-agent': 'ApplywallBot/0.1 (+job-tracker)' },
+          headers: { 'user-agent': 'JobberyBot/0.1 (+job-tracker)' },
           redirect: 'manual',
         })
         if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {

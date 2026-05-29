@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Applywall — Job Application Tracker",
+  title: "jobbery — Job Application Tracker",
   description: "A momentum machine for job applications.",
 };
 

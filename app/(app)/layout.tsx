@@ -16,9 +16,13 @@ export default function AppLayout({
       {/* Mobile-only header. On desktop the header lives inside the left column
           so the right panel can bleed to the very top of the viewport. */}
       <header className="mb-8 flex items-center justify-between lg:hidden">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Applywall</h1>
-          <span className="text-xs text-muted-foreground">keep the streak</span>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="font-mono text-lg font-semibold tracking-tight">
+            <span className="text-muted-foreground">[</span>
+            jobbery
+            <span className="text-muted-foreground">]</span>
+          </h1>
+          <span className="text-[10px] text-muted-foreground">keep the streak</span>
         </div>
         <SettingsDialog />
       </header>

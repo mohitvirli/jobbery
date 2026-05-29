@@ -50,9 +50,13 @@ export function Dashboard() {
           right edge (aligned to the stats). inset-x-8 matches the grid's px-8 so
           edges line up with the content. Mobile header lives in the route layout. */}
       <header className="hidden lg:absolute lg:inset-x-8 lg:top-0 lg:z-20 lg:flex lg:h-20 lg:items-center lg:justify-between">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Applywall</h1>
-          <span className="text-xs text-muted-foreground">keep the streak</span>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="font-mono text-lg font-semibold tracking-tight">
+            <span className="text-muted-foreground">[</span>
+            jobbery
+            <span className="text-muted-foreground">]</span>
+          </h1>
+          <span className="text-[10px] text-muted-foreground">keep the streak</span>
         </div>
         <SettingsDialog />
       </header>
