@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` utilities trigger under the base `.dark` class AND every imported
+   dark palette theme, so component-level dark tweaks (shadows, overlays) apply
+   to the ported themes too. Light palettes are intentionally excluded. */
+@custom-variant dark (&:is(.dark *, .theme-github-dark *, .theme-claude-dark *, .theme-todoist-dark *, .theme-todoist-tangerine *, .theme-todoist-moonstone *, .theme-todoist-kale *, .theme-todoist-lavender *, .theme-todoist-raspberry *, .theme-todoist-sunset *, .theme-todoist-bordeaux *, .theme-todoist-teal *, .theme-todoist-pacific *));
 
 @theme inline {
   --color-background: var(--background);
@@ -239,6 +242,81 @@
   --sidebar-primary: var(--color-neutral-100);
   --sidebar-primary-foreground: var(--color-neutral-800);
   --sidebar-ring: var(--color-neutral-400);
+}
+
+/* ─── Imported palette themes (ported from todoist-graph) ──────────────────
+   Each theme sets only a compact palette (--t-*). The shared rule below maps
+   that palette onto the full shadcn token set via color-mix, so overlays
+   (muted/accent/secondary surfaces, input, sidebar) are derived once and work
+   for both light and dark palettes. Adding a theme = one palette block + an
+   entry in lib/themes.ts (and, if dark, the @custom-variant list above). */
+.theme-github-light { --t-bg:#ffffff; --t-fg:#1f2328; --t-muted:#656d76; --t-border:#d0d7de; --t-accent:#1f9d85; --t-cell-0:#ebedf0; --t-cell-1:#9be9d0; --t-cell-2:#40c4aa; --t-cell-3:#1f9d85; --t-cell-4:#0a6b5b; }
+.theme-github-dark { --t-bg:#0d1117; --t-fg:#e6edf3; --t-muted:#8b949e; --t-border:#30363d; --t-accent:#26a641; --t-cell-0:#161b22; --t-cell-1:#0e4429; --t-cell-2:#006d32; --t-cell-3:#26a641; --t-cell-4:#39d353; }
+.theme-claude-light { --t-bg:#faf9f5; --t-fg:#2b2b29; --t-muted:#6f6e69; --t-border:#e3e1d8; --t-accent:#c87f43; --t-cell-0:#ece9df; --t-cell-1:#f0d4b4; --t-cell-2:#e3a063; --t-cell-3:#c87f43; --t-cell-4:#a3582a; }
+.theme-claude-dark { --t-bg:#1f1e1c; --t-fg:#f0eee6; --t-muted:#8a8780; --t-border:#38362f; --t-accent:#d97757; --t-cell-0:#292825; --t-cell-1:#5a3a1f; --t-cell-2:#8c5a2e; --t-cell-3:#d97757; --t-cell-4:#ffb38a; }
+.theme-todoist-light { --t-bg:#ffffff; --t-fg:#202020; --t-muted:#7d7d7d; --t-border:#ececec; --t-accent:#dc4c3e; --t-cell-0:#f4f4f4; --t-cell-1:#f6c3bf; --t-cell-2:#ec8079; --t-cell-3:#dc4c3e; --t-cell-4:#a32c20; }
+.theme-todoist-dark { --t-bg:#1f1f1f; --t-fg:#eeeeee; --t-muted:#8a8a8a; --t-border:#2e2e2e; --t-accent:#dc4c3e; --t-cell-0:#2a2a2a; --t-cell-1:#5a221d; --t-cell-2:#9a3a30; --t-cell-3:#dc4c3e; --t-cell-4:#ff7a6e; }
+.theme-todoist-tangerine { --t-bg:#1a1410; --t-fg:#fbe9da; --t-muted:#a08877; --t-border:#2c2218; --t-accent:#ff8a3d; --t-cell-0:#241a14; --t-cell-1:#5c2f12; --t-cell-2:#a45821; --t-cell-3:#ff8a3d; --t-cell-4:#ffcf99; }
+.theme-todoist-moonstone { --t-bg:#1a1f26; --t-fg:#d8e1ec; --t-muted:#7b8a9c; --t-border:#2a313b; --t-accent:#7da3c7; --t-cell-0:#232a33; --t-cell-1:#2f4257; --t-cell-2:#4d6d8f; --t-cell-3:#7da3c7; --t-cell-4:#b8d0e6; }
+.theme-todoist-kale { --t-bg:#131a14; --t-fg:#e3eee5; --t-muted:#82978a; --t-border:#1f2a22; --t-accent:#6cb273; --t-cell-0:#1c2520; --t-cell-1:#2b4a32; --t-cell-2:#46784e; --t-cell-3:#6cb273; --t-cell-4:#b3e0b0; }
+.theme-todoist-lavender { --t-bg:#19151f; --t-fg:#ece4f5; --t-muted:#968aa6; --t-border:#2a2334; --t-accent:#9b7ed9; --t-cell-0:#221c2c; --t-cell-1:#3d2e5a; --t-cell-2:#6347a0; --t-cell-3:#9b7ed9; --t-cell-4:#d6c4f5; }
+.theme-todoist-raspberry { --t-bg:#1a1015; --t-fg:#fbe2ec; --t-muted:#a8869a; --t-border:#2c1a23; --t-accent:#d94a8b; --t-cell-0:#25151c; --t-cell-1:#5a1d3a; --t-cell-2:#9a2f63; --t-cell-3:#d94a8b; --t-cell-4:#f7a5cd; }
+.theme-todoist-bubblegum { --t-bg:#fef5f8; --t-fg:#4a1c2f; --t-muted:#8e6677; --t-border:#f4dfe7; --t-accent:#d63d7c; --t-cell-0:#fae3ec; --t-cell-1:#f9b5cd; --t-cell-2:#f17ba6; --t-cell-3:#d63d7c; --t-cell-4:#921e54; }
+.theme-todoist-sunset { --t-bg:#1c1218; --t-fg:#ffe7d8; --t-muted:#a98c84; --t-border:#2d1d23; --t-accent:#f17a3d; --t-cell-0:#27181f; --t-cell-1:#5e2438; --t-cell-2:#b03f56; --t-cell-3:#f17a3d; --t-cell-4:#ffd166; }
+.theme-todoist-bordeaux { --t-bg:#170c0d; --t-fg:#f3dce0; --t-muted:#a08589; --t-border:#281618; --t-accent:#c43040; --t-cell-0:#1f1112; --t-cell-1:#4a1418; --t-cell-2:#842028; --t-cell-3:#c43040; --t-cell-4:#f06474; }
+.theme-todoist-teal { --t-bg:#0e1a1c; --t-fg:#d7eef0; --t-muted:#7a9395; --t-border:#182a2d; --t-accent:#46c5d4; --t-cell-0:#15252a; --t-cell-1:#1d4a52; --t-cell-2:#2f8593; --t-cell-3:#46c5d4; --t-cell-4:#a5edf2; }
+.theme-todoist-pacific { --t-bg:#0c1624; --t-fg:#dce7f5; --t-muted:#7a8da6; --t-border:#16243a; --t-accent:#4ea8ff; --t-cell-0:#131f33; --t-cell-1:#173a6a; --t-cell-2:#2069b8; --t-cell-3:#4ea8ff; --t-cell-4:#b6dcff; }
+
+/* Plain class-list (NOT :where) so specificity ties `:root`/`.light`/`.dark`;
+   placed later in source, so the active theme class wins the cascade. */
+.theme-github-light, .theme-github-dark, .theme-claude-light, .theme-claude-dark, .theme-todoist-light, .theme-todoist-dark, .theme-todoist-tangerine, .theme-todoist-moonstone, .theme-todoist-kale, .theme-todoist-lavender, .theme-todoist-raspberry, .theme-todoist-bubblegum, .theme-todoist-sunset, .theme-todoist-bordeaux, .theme-todoist-teal, .theme-todoist-pacific {
+  --background: var(--t-bg);
+  --foreground: var(--t-fg);
+  --card: var(--t-bg);
+  --card-foreground: var(--t-fg);
+  --popover: var(--t-bg);
+  --popover-foreground: var(--t-fg);
+  --primary: var(--t-fg);
+  --primary-foreground: var(--t-bg);
+  --secondary: color-mix(in srgb, var(--t-fg) 6%, var(--t-bg));
+  --secondary-foreground: var(--t-fg);
+  --muted: color-mix(in srgb, var(--t-fg) 4%, var(--t-bg));
+  --muted-foreground: var(--t-muted);
+  --accent: color-mix(in srgb, var(--t-fg) 7%, var(--t-bg));
+  --accent-foreground: var(--t-fg);
+  --border: var(--t-border);
+  --input: color-mix(in srgb, var(--t-fg) 14%, var(--t-bg));
+  --ring: var(--t-accent);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-400);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --success: var(--t-accent);
+  --success-foreground: var(--t-accent);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
+  --chart-1: var(--t-cell-1);
+  --chart-2: var(--t-cell-2);
+  --chart-3: var(--t-cell-3);
+  --chart-4: var(--t-cell-4);
+  --chart-5: var(--t-accent);
+  --code: var(--t-bg);
+  --code-foreground: var(--t-fg);
+  --code-highlight: color-mix(in srgb, var(--t-fg) 5%, var(--t-bg));
+  --radius: 0.625rem;
+  --sidebar: color-mix(in srgb, var(--t-fg) 3%, var(--t-bg));
+  --sidebar-accent: color-mix(in srgb, var(--t-fg) 7%, var(--t-bg));
+  --sidebar-accent-foreground: var(--t-fg);
+  --sidebar-border: var(--t-border);
+  --sidebar-foreground: var(--t-muted);
+  --sidebar-primary: var(--t-fg);
+  --sidebar-primary-foreground: var(--t-bg);
+  --sidebar-ring: var(--t-accent);
+  --heat-0: var(--t-cell-0);
+  --heat-1: var(--t-cell-1);
+  --heat-2: var(--t-cell-2);
+  --heat-3: var(--t-cell-3);
+  --heat-4: var(--t-cell-4);
 }
 
 @layer base {

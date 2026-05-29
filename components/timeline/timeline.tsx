@@ -11,7 +11,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import { relativeTime, startOfDay, startOfWeek, addDays } from '@/lib/date'
 import type { Application, ApplicationStatus } from '@/lib/types'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -93,9 +93,11 @@ function CheckCursor({ x, y }: { x: number; y: number }) {
 function Row({
   app,
   onSetStatus,
+  onDelete,
 }: {
   app: Application
   onSetStatus: (id: string, status: ApplicationStatus) => void
+  onDelete: (id: string) => void
 }) {
   const isToApply = app.status === 'to_apply'
   // Applied rows recede — dim the whole row so open (to-apply) ones stand out.
@@ -119,7 +121,7 @@ function Row({
       transition={{ type: 'spring', stiffness: 500, damping: 40 }}
       data-status={app.status}
     >
-      <div className="group relative flex items-center gap-3 rounded-lg py-3 pr-2">
+      <div className="group relative flex items-center gap-3 rounded-lg py-2 pr-2">
         {/* Rail node = the checkbox. Sits above the continuous rail line (drawn
             on the <ul>). No backing ring — the line runs unbroken behind every
             node; on hover the transparent backing reveals the full line.
@@ -173,7 +175,7 @@ function Row({
             <StrikeText
               struck={!isToApply}
               className={
-                'shrink-0 font-medium decoration-1 underline-offset-2' +
+                'shrink-0 text-sm font-medium decoration-1 underline-offset-2' +
                 (app.url ? ' group-hover/link:underline' : '')
               }
             >
@@ -193,30 +195,46 @@ function Row({
           </div>
         </div>
 
-        {/* Relative time, swapped for an open-link affordance on hover. */}
-        {app.url ? (
-          <span className="relative shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Relative time, swapped for an open-link affordance on hover. */}
+          {app.url ? (
+            <span className="relative shrink-0">
+              <time
+                className="text-xs tabular-nums text-muted-foreground group-hover:opacity-0"
+                dateTime={app.appliedAt}
+                title={new Date(app.appliedAt).toLocaleString()}
+              >
+                {relativeTime(app.appliedAt)}
+              </time>
+              <ExternalLink
+                aria-hidden
+                className="absolute right-0 top-1/2 size-4 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+              />
+            </span>
+          ) : (
             <time
-              className="text-xs tabular-nums text-muted-foreground group-hover:opacity-0"
+              className="shrink-0 text-xs tabular-nums text-muted-foreground"
               dateTime={app.appliedAt}
               title={new Date(app.appliedAt).toLocaleString()}
             >
               {relativeTime(app.appliedAt)}
             </time>
-            <ExternalLink
-              aria-hidden
-              className="absolute right-0 top-1/2 size-4 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-            />
-          </span>
-        ) : (
-          <time
-            className="shrink-0 text-xs tabular-nums text-muted-foreground"
-            dateTime={app.appliedAt}
-            title={new Date(app.appliedAt).toLocaleString()}
+          )}
+
+          {/* Delete — reveals on row hover, sits right of the time/link icon. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(app.id)
+            }}
+            aria-label="Delete application"
+            title="Delete"
+            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,color] hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
           >
-            {relativeTime(app.appliedAt)}
-          </time>
-        )}
+            <Trash2 className="size-4" />
+          </button>
+        </div>
       </div>
     </motion.li>
   )
@@ -245,9 +263,11 @@ function bucketOf(iso: string): (typeof BUCKETS)[number]['key'] {
 export function Timeline({
   applications,
   onSetStatus,
+  onDelete,
 }: {
   applications: Application[]
   onSetStatus: (id: string, status: ApplicationStatus) => void
+  onDelete: (id: string) => void
 }) {
   if (applications.length === 0) {
     return (
@@ -286,7 +306,12 @@ export function Timeline({
           <ul className="flex min-w-0 flex-1 flex-col">
             <AnimatePresence initial={false}>
               {group.items.map((app) => (
-                <Row key={app.id} app={app} onSetStatus={onSetStatus} />
+                <Row
+                  key={app.id}
+                  app={app}
+                  onSetStatus={onSetStatus}
+                  onDelete={onDelete}
+                />
               ))}
             </AnimatePresence>
           </ul>

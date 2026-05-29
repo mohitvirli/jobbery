@@ -46,20 +46,25 @@ export function useApplications() {
   const update = useCallback(
     async (id: string, patch: ApplicationPatch) => {
       const updated = await storage.update(USER_ID, id, patch)
-      // In-place swap, no re-sort — toggling status (or editing) keeps the row
-      // exactly where it is. appliedAt isn't changed on status flips anymore, so
-      // there's nothing to re-order.
+      // Swap in place — no re-sort. Toggling the checkbox keeps the row exactly
+      // where it is (no jump), even though appliedAt may have been re-stamped.
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
       return updated
     },
     []
   )
 
-  // Status transition helper. Only status changes — appliedAt is left as-is so
-  // toggling the checkbox never re-stamps the date; the row keeps its position
-  // and date-group (no jump on click).
+  // Status transition helper. Marking 'applied' re-stamps appliedAt to now so
+  // the heatmap/streak credit the day you actually applied; moving back to
+  // 'to_apply' leaves the date untouched (it's just re-queued, not un-applied).
   const setStatus = useCallback(
-    (id: string, status: ApplicationStatus) => update(id, { status }),
+    (id: string, status: ApplicationStatus) =>
+      update(
+        id,
+        status === 'applied'
+          ? { status, appliedAt: new Date().toISOString() }
+          : { status }
+      ),
     [update]
   )
 

@@ -3,21 +3,35 @@
 // Three momentum metrics: current streak, this-week vs target, lifetime total.
 // Computed from the applications array (pure functions in lib/date) so this
 // component stays presentational.
+//
+// Motivation layers on top of the raw counts:
+//   - Current streak shows a "Best N" personal best to chase.
+//   - This-week shows a progress bar toward the weekly target.
+//   - A loss-aversion nudge surfaces when the streak is alive but today is empty.
 
 import { useMemo } from 'react'
-import { currentStreak, thisWeekCount } from '@/lib/date'
+import { Flame, Target } from 'lucide-react'
+import {
+  currentStreak,
+  longestStreak,
+  thisWeekCount,
+  streakAtRisk,
+  openCount,
+  applyToday,
+} from '@/lib/date'
 import type { Application } from '@/lib/types'
-
-const WEEKLY_TARGET = 5 // default goal; v1 will make this user-configurable
+import { useSettings } from '@/hooks/use-settings'
 
 function Stat({
   value,
   label,
   accent,
+  footer,
 }: {
   value: React.ReactNode
   label: string
   accent?: boolean
+  footer?: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1 rounded-xl border bg-card px-5 py-4">
@@ -28,47 +42,124 @@ function Stat({
         {value}
       </span>
       <span className="text-xs text-muted-foreground">{label}</span>
+      {footer}
     </div>
   )
 }
 
 export function StatsRow({ applications }: { applications: Application[] }) {
-  const { streak, week, total } = useMemo(
+  const {
+    settings: { weeklyTarget },
+  } = useSettings()
+  const { streak, best, week, open, today, atRisk, total } = useMemo(
     () => ({
       streak: currentStreak(applications),
+      best: longestStreak(applications),
       week: thisWeekCount(applications),
+      open: openCount(applications),
+      today: applyToday(applications, weeklyTarget),
+      atRisk: streakAtRisk(applications),
       total: applications.length,
     }),
-    [applications]
+    [applications, weeklyTarget]
   )
 
+  const weekPct = Math.min(100, weeklyTarget > 0 ? (week / weeklyTarget) * 100 : 0)
+  const weekHit = week >= weeklyTarget
+  // Can only apply to roles already queued — bound the daily push by the open
+  // backlog. With nothing queued, the nudge flips to "add roles".
+  const toApplyNow = Math.min(today, open)
+  const behind = today > 0
+
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Stat
-        accent={streak > 0}
-        value={
+    <div className="flex flex-col gap-3">
+      {atRisk && (
+        <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2.5 text-sm">
+          <Flame className="size-4 shrink-0 text-success" />
           <span>
-            {streak}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">
-              {streak === 1 ? 'day' : 'days'}
-            </span>
+            Apply once to keep your{' '}
+            <span className="font-semibold tabular-nums">{streak}-day</span> streak
+            alive.
           </span>
-        }
-        label="Current streak"
-      />
-      <Stat
-        value={
-          <span>
-            {week}
-            <span className="text-sm font-normal text-muted-foreground">
-              {' '}
-              / {WEEKLY_TARGET}
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat
+          accent={streak > 0}
+          value={
+            <span>
+              {streak}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                {streak === 1 ? 'day' : 'days'}
+              </span>
             </span>
-          </span>
+          }
+          label="Streak"
+          footer={
+            best > 0 ? (
+              <span className="text-xs text-muted-foreground">
+                Best <span className="tabular-nums">{best}</span>
+              </span>
+            ) : undefined
+          }
+        />
+        <Stat
+          accent={weekHit}
+          value={
+            <span>
+              {week}
+              <span className="text-sm font-normal text-muted-foreground">
+                {' '}
+                / {weeklyTarget}
+              </span>
+            </span>
+          }
+          label="This week"
+          footer={
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-success transition-[width]"
+                style={{ width: `${weekPct}%` }}
+              />
+            </div>
+          }
+        />
+        <Stat value={open} label="Open" />
+      </div>
+
+      {/* Daily pace banner — inferred from the open backlog. Accented when
+          there's something to do (behind pace), quiet when caught up, and an
+          onboarding prompt before any roles exist. */}
+      <div
+        className={
+          'flex items-center gap-3 rounded-xl border bg-card px-5 py-3.5' +
+          (behind && total > 0 ? ' border-success/40' : '')
         }
-        label="This week"
-      />
-      <Stat value={total} label="Total applications" />
+      >
+        <Target className="size-5 shrink-0 text-success" />
+        {total === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Add your first role to start tracking.
+          </p>
+        ) : !behind ? (
+          <p className="text-sm text-muted-foreground">
+            {weekHit ? 'Weekly target met.' : 'On track for today.'}
+          </p>
+        ) : open === 0 ? (
+          <p className="text-sm">
+            No open roles — add some to keep your pace.
+          </p>
+        ) : (
+          <p className="text-sm">
+            Apply{' '}
+            <span className="font-semibold tabular-nums text-success">
+              {toApplyNow}
+            </span>{' '}
+            {toApplyNow === 1 ? 'role' : 'roles'} today to stay on pace.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

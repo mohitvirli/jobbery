@@ -6,7 +6,7 @@
 // without touching this component.
 
 import { useMemo } from 'react'
-import { buildHeatmap } from '@/lib/date'
+import { buildHeatmap, appliedOnly } from '@/lib/date'
 import type { Application } from '@/lib/types'
 import {
   Tooltip,
@@ -28,6 +28,10 @@ function formatDate(d: Date): string {
 
 export function Heatmap({ applications }: { applications: Application[] }) {
   const grid = useMemo(() => buildHeatmap(applications, WEEKS), [applications])
+  const totalApplied = useMemo(
+    () => appliedOnly(applications).length,
+    [applications]
+  )
 
   return (
     <TooltipProvider delay={120} closeDelay={0}>
@@ -77,7 +81,7 @@ export function Heatmap({ applications }: { applications: Application[] }) {
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Legend + total applied (bottom-right). */}
       <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <span>Less</span>
         {[0, 1, 2, 3, 4].map((lvl) => (
@@ -88,6 +92,9 @@ export function Heatmap({ applications }: { applications: Application[] }) {
           />
         ))}
         <span>More</span>
+        <span className="ml-auto text-foreground">
+          <span className="font-semibold tabular-nums">{totalApplied}</span> applied
+        </span>
       </div>
     </section>
     </TooltipProvider>

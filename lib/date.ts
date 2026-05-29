@@ -36,6 +36,18 @@ export function addDays(d: Date, n: number): Date {
   return c
 }
 
+// Only 'applied' (completed) rows count toward momentum analytics. A saved
+// 'to_apply' row is a queued intent, not a submission, so it must not credit
+// the streak, heatmap, weekly count, or total.
+export function appliedOnly(apps: Application[]): Application[] {
+  return apps.filter((a) => a.status === 'applied')
+}
+
+// Count of open (queued, not-yet-applied) rows — the backlog to work through.
+export function openCount(apps: Application[]): number {
+  return apps.filter((a) => a.status === 'to_apply').length
+}
+
 // Map of dayKey -> application count.
 export function countByDay(apps: Application[]): Map<string, number> {
   const m = new Map<string, number>()
@@ -66,7 +78,7 @@ export type HeatmapCell = {
 // Build a weeks×7 grid for the last `weeks` weeks, ending with the current week.
 // Columns = weeks (oldest→newest), each column = 7 day cells (week-start→end).
 export function buildHeatmap(apps: Application[], weeks = 12): HeatmapCell[][] {
-  const counts = countByDay(apps)
+  const counts = countByDay(appliedOnly(apps))
   const today = startOfDay(new Date())
   const thisWeekStart = startOfWeek(today)
   const firstWeekStart = addDays(thisWeekStart, -(weeks - 1) * 7)
@@ -95,8 +107,8 @@ export function buildHeatmap(apps: Application[], weeks = 12): HeatmapCell[][] {
 // Current streak = consecutive days (ending today or yesterday) with ≥1 application.
 // Yesterday counts as still-alive so the streak doesn't "break" before today's first log.
 export function currentStreak(apps: Application[]): number {
-  if (apps.length === 0) return 0
-  const counts = countByDay(apps)
+  const counts = countByDay(appliedOnly(apps))
+  if (counts.size === 0) return 0
   const today = startOfDay(new Date())
 
   // If neither today nor yesterday has a log, streak is 0.
@@ -113,10 +125,55 @@ export function currentStreak(apps: Application[]): number {
   return streak
 }
 
+// Longest run of consecutive ≥1-application days anywhere in history.
+// Gives the user a personal best to chase past the current streak.
+export function longestStreak(apps: Application[]): number {
+  // Sorted unique day timestamps (local midnight) of applied days.
+  const days = [...countByDay(appliedOnly(apps)).keys()]
+    .map((k) => startOfDay(new Date(k)).getTime())
+    .sort((a, b) => a - b)
+  if (days.length === 0) return 0
+
+  const DAY = 86_400_000
+  let best = 1
+  let run = 1
+  for (let i = 1; i < days.length; i++) {
+    run = days[i] - days[i - 1] === DAY ? run + 1 : 1
+    if (run > best) best = run
+  }
+  return best
+}
+
+// Applications applied today (local).
+export function todayCount(apps: Application[]): number {
+  const key = toDayKey(new Date())
+  return countByDay(appliedOnly(apps)).get(key) ?? 0
+}
+
+// Streak alive (≥1) but nothing logged today yet → one more keeps it.
+// Drives the loss-aversion nudge.
+export function streakAtRisk(apps: Application[]): boolean {
+  return currentStreak(apps) > 0 && todayCount(apps) === 0
+}
+
+// How many more to apply TODAY to stay on pace for the weekly target.
+// Spreads the week's remaining target evenly across the days left (incl today),
+// then subtracts what's already applied today. 0 = done for today / target met.
+export function applyToday(apps: Application[], weeklyTarget: number): number {
+  const remaining = Math.max(0, weeklyTarget - thisWeekCount(apps))
+  if (remaining === 0) return 0
+  const todayIdx = (startOfDay(new Date()).getDay() - WEEK_STARTS_ON + 7) % 7
+  const daysLeft = 7 - todayIdx // includes today
+  const perDay = Math.ceil(remaining / daysLeft)
+  return Math.max(0, perDay - todayCount(apps))
+}
+
 // Count of applications in the current week (since week start).
 export function thisWeekCount(apps: Application[]): number {
   const weekStart = startOfWeek(new Date()).getTime()
-  return apps.filter((a) => new Date(a.appliedAt).getTime() >= weekStart).length
+  return appliedOnly(apps).filter(
+    (a) => new Date(a.appliedAt).getTime() >= weekStart
+  ).length
 }
 
 // "2h ago", "3d ago", "just now". Compact relative time for the timeline.
