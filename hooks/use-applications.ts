@@ -46,24 +46,20 @@ export function useApplications() {
   const update = useCallback(
     async (id: string, patch: ApplicationPatch) => {
       const updated = await storage.update(USER_ID, id, patch)
-      setApplications((prev) => {
-        const next = prev.map((a) => (a.id === id ? updated : a))
-        // Keep newest-first ordering since appliedAt can change on status flip.
-        return next.sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
-      })
+      // In-place swap, no re-sort — toggling status (or editing) keeps the row
+      // exactly where it is. appliedAt isn't changed on status flips anymore, so
+      // there's nothing to re-order.
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
       return updated
     },
     []
   )
 
-  // Status transition helper. Flipping → 'applied' re-stamps appliedAt to NOW so
-  // the heatmap/streak credit the day you actually applied (per product choice).
+  // Status transition helper. Only status changes — appliedAt is left as-is so
+  // toggling the checkbox never re-stamps the date; the row keeps its position
+  // and date-group (no jump on click).
   const setStatus = useCallback(
-    (id: string, status: ApplicationStatus) => {
-      const patch: ApplicationPatch = { status }
-      if (status === 'applied') patch.appliedAt = new Date().toISOString()
-      return update(id, patch)
-    },
+    (id: string, status: ApplicationStatus) => update(id, { status }),
     [update]
   )
 

@@ -5,18 +5,15 @@
 //  - Enriched: a debounced call to /api/parse fetches the page server-side and
 //    fills in the real role + company from metadata (CORS blocks doing this in
 //    the browser, hence the server route).
-// Company + role become editable fields prefilled with the best guess, so one
-// glance confirms the log. Status (To apply / Applied) is chosen here.
-// Cmd/Ctrl+Enter submits.
+// The submit button shows the fetch spinner and turns green on a clean parse.
+// An edit icon (left of the field) reveals company + title inputs, prefilled
+// with the best guess. New entries default to "to apply"; Enter submits.
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Pencil } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Kbd } from '@/components/ui/kbd'
-import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/ui/spinner'
 import { parseJobUrl, looksLikeUrl, fetchJobMetadata } from '@/lib/url-parser'
 import type { ApplicationStatus, JobDetails, NewApplication } from '@/lib/types'
 
@@ -30,10 +27,14 @@ export function QuickAdd({
   const [raw, setRaw] = useState('')
   const [company, setCompany] = useState('')
   const [role, setRole] = useState('')
-  const [status, setStatus] = useState<ApplicationStatus>('applied')
+  // Status isn't chosen here anymore — the timeline checkbox is the source of
+  // truth. New entries default to "to apply"; tick the checkbox once applied.
+  const status: ApplicationStatus = 'to_apply'
   const [fetched, setFetched] = useState<JobDetails | null>(null)
   const [fetching, setFetching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Company/role editor is collapsed by default; the edit icon reveals it.
+  const [showFields, setShowFields] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Track manual edits so background metadata never clobbers what the user typed.
@@ -84,6 +85,10 @@ export function QuickAdd({
     company.trim() || (!isUrl ? raw.trim() : regex?.company ?? '')
   const canSubmit = resolvedCompany.length > 0 && !submitting
   const hasInput = raw.trim().length > 0
+  // Metadata came back clean — colour the submit button green as a success cue.
+  const fetchedOk = isUrl && fetched?.source === 'metadata'
+  // Once a fetch settles (or for plain non-URL input), offer the edit toggle.
+  const canEdit = hasInput && !fetching
 
   function reset() {
     setRaw('')
@@ -91,6 +96,7 @@ export function QuickAdd({
     setRole('')
     setFetched(null)
     setFetching(false)
+    setShowFields(false)
     companyTouched.current = false
     roleTouched.current = false
     // status persists — likely logging several of the same kind in a row.
@@ -116,83 +122,75 @@ export function QuickAdd({
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (e.key === 'Enter') {
       e.preventDefault()
       void submit()
     }
   }
 
-  const submitLabel = status === 'applied' ? 'Log Application' : 'Save to apply'
+  const submitLabel = 'Save to apply'
 
   return (
-    <div
-      onKeyDown={onKeyDown}
-      className="flex flex-col gap-3 rounded-2xl border bg-card p-4"
-    >
+    <div onKeyDown={onKeyDown} className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <Input
-          ref={inputRef}
-          value={raw}
-          onChange={(e) => onRawChange(e.target.value)}
-          placeholder="Paste a job URL or type a company…"
-          size="lg"
-          autoFocus
-          aria-label="Job URL or company"
-        />
+        {/* layout: input width animates down as the edit button mounts in. */}
+        <motion.div layout className="min-w-0 flex-1">
+          <Input
+            ref={inputRef}
+            value={raw}
+            onChange={(e) => onRawChange(e.target.value)}
+            placeholder="Paste a job URL or type a company…"
+            size="lg"
+            autoFocus
+            aria-label="Job URL or company"
+            className="w-full"
+          />
+        </motion.div>
+        {/* Edit toggle — appears once a fetch settles. Reveals company/title.
+            Scale/fade in (no width animation — that clips the icon in flex). */}
+        <AnimatePresence initial={false} mode="popLayout">
+          {canEdit && (
+            <motion.div
+              layout
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            >
+              <Button
+                type="button"
+                size="icon-lg"
+                variant={showFields ? 'secondary' : 'outline'}
+                onClick={() => setShowFields((v) => !v)}
+                aria-label="Edit company and title"
+                aria-pressed={showFields}
+                title="Edit company and title"
+              >
+                <Pencil />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <Button
           size="icon-lg"
           onClick={() => void submit()}
-          loading={submitting}
+          loading={submitting || fetching}
           disabled={!canSubmit}
           aria-label={submitLabel}
           title={submitLabel}
+          className={
+            fetchedOk && !submitting
+              ? 'border-transparent bg-green-600 text-white hover:bg-green-600/90'
+              : undefined
+          }
         >
           <ArrowRight />
         </Button>
       </div>
 
-      {/* Status segmented control */}
-      <div className="flex items-center gap-1.5">
-        <StatusButton
-          active={status === 'applied'}
-          onClick={() => setStatus('applied')}
-        >
-          Applied
-        </StatusButton>
-        <StatusButton
-          active={status === 'to_apply'}
-          onClick={() => setStatus('to_apply')}
-        >
-          To apply
-        </StatusButton>
-
-        {/* Fetch state hint */}
-        <AnimatePresence initial={false}>
-          {isUrl && (regex?.board || fetched?.board) && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              <Badge variant="secondary" className="capitalize">
-                {fetched?.board ?? regex?.board}
-              </Badge>
-              {fetching ? (
-                <span className="flex items-center gap-1">
-                  <Spinner className="size-3" /> reading page…
-                </span>
-              ) : fetched?.source === 'metadata' ? (
-                <span>from page</span>
-              ) : null}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
       {/* Editable company + role, prefilled by the best available guess */}
       <AnimatePresence initial={false}>
-        {hasInput && (
+        {showFields && hasInput && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -222,35 +220,6 @@ export function QuickAdd({
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
-        <Kbd>⌘</Kbd>
-        <Kbd>↵</Kbd>
-        <span>to {status === 'applied' ? 'log' : 'save'}</span>
-      </div>
     </div>
-  )
-}
-
-// Small segmented-control button. Inline (not a separate file) — only used here.
-function StatusButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? 'secondary' : 'ghost'}
-      onClick={onClick}
-      data-active={active || undefined}
-    >
-      {children}
-    </Button>
   )
 }
