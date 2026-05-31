@@ -19,21 +19,23 @@ import type {
 } from '@/lib/types'
 
 export function useApplications() {
-  const { isGuest, loading: authLoading, effectiveUserId } = useAuth()
+  const { user, loading: authLoading, effectiveUserId } = useAuth()
 
-  // Pick the store by mode. Memoized on [isGuest, effectiveUserId] so a single
-  // store instance is reused across renders until the auth mode/user changes.
-  //   - Guest: LocalStorageStore ONLY. No Supabase — an unauthenticated request
-  //     would just be rejected by RLS, so we never make it.
+  // Pick the store by mode. Memoized on [user, effectiveUserId] so a single
+  // store instance is reused across renders until the auth user changes.
+  //   - No real user (guest OR logged-out): LocalStorageStore ONLY. effectiveUserId
+  //     is 'local', which is not a uuid — Supabase would reject it. Keying off the
+  //     real `user` (not isGuest) covers the post-logout window too, where there's
+  //     no user AND no guest cookie yet.
   //   - Authed: CachedStore(SupabaseStore, LocalStorageStore) — remote is
   //     authoritative, localStorage is a read-through/write-through cache.
   const store = useMemo<Storage>(() => {
-    if (isGuest) return new LocalStorageStore()
+    if (!user) return new LocalStorageStore()
     return new CachedStore(new SupabaseStore(createClient()), new LocalStorageStore())
     // effectiveUserId is in the dep list so a user switch rebuilds the store
-    // even if isGuest stays false (e.g. account A → account B).
+    // even if it stays authed (e.g. account A → account B).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGuest, effectiveUserId])
+  }, [user, effectiveUserId])
 
   // Seed authed renders synchronously from the per-user cache for instant paint;
   // refresh() reconciles against the remote right after. Guests start empty and

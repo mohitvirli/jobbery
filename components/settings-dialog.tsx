@@ -6,6 +6,7 @@
 // (next-themes persists), and the weekly target writes through on each step.
 // There's no Save button; the footer just dismisses.
 
+import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { Settings, Check, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -82,15 +83,19 @@ function ThemeCard({
 }
 
 export function SettingsDialog() {
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { settings, update } = useSettings()
   const { user } = useAuth()
   const active = theme ?? DEFAULT_THEME
 
-  // Sign out only makes sense for an authed user — the auth listener in
-  // AuthProvider flips `user` to null reactively, so no manual redirect needed.
-  const handleSignOut = () => {
-    void createClient().auth.signOut()
+  // Sign out only makes sense for an authed user. AuthProvider flips `user` to
+  // null reactively, but the current route is auth-gated — without a redirect
+  // the logged-out user sits on a page whose data store has no real userId. Push
+  // to /login so the proxy gate and the data layer agree on the signed-out state.
+  const handleSignOut = async () => {
+    await createClient().auth.signOut()
+    router.push('/login')
   }
 
   return (
