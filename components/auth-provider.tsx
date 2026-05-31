@@ -8,11 +8,13 @@
 import {
   createContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
-import type { User } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { migrateLocalData } from '@/lib/migrate-local'
 
 export type AuthContextValue = {
   user: User | null
@@ -52,15 +54,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Guards the one-shot v0/guest migration so it fires at most once per mount,
+  // no matter how many auth events arrive (getUser + onAuthStateChange both
+  // resolve to a user). The migration itself is also idempotent via its own
+  // per-user localStorage flag, so a second run across sessions is harmless;
+  // this ref just avoids redundant work within a single session.
+  const migrationTriggered = useRef(false)
+
   useEffect(() => {
     const supabase = createClient()
     let active = true
+
+    // Fire-and-forget so migration never blocks render. Runs only for a real
+    // user (never guests, who have no user). Errors are logged, not thrown —
+    // on failure migrateLocalData leaves its flag unset so the next login
+    // retries.
+    const runMigration = (signedInUser: User, client: SupabaseClient) => {
+      if (migrationTriggered.current) return
+      migrationTriggered.current = true
+      void migrateLocalData(signedInUser.id, client).catch((err: unknown) => {
+        console.error('[auth] local data migration failed', err)
+      })
+    }
 
     // Seed from the current session. loading stays true until this resolves so
     // consumers never read user.id prematurely.
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return
-      if (data.user) clearGuestMode()
+      if (data.user) {
+        clearGuestMode()
+        runMigration(data.user, supabase)
+      }
       setUser(data.user)
       setLoading(false)
     })
@@ -70,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextUser = session?.user ?? null
-      if (nextUser) clearGuestMode()
+      if (nextUser) {
+        clearGuestMode()
+        runMigration(nextUser, supabase)
+      }
       setUser(nextUser)
       setLoading(false)
     })
