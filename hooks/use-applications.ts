@@ -1,12 +1,16 @@
 'use client'
 
-// React binding over the storage layer. Components never touch `storage`
-// directly — they use this hook, so the storage swap (localStorage → Supabase)
-// stays invisible above this line. userId is hardcoded 'local' for v0; when auth
-// lands it comes from the session instead.
+// React binding over the storage layer. Components never touch a store
+// directly — they use this hook, so the storage swap stays invisible above this
+// line. The store is now chosen per auth mode and userId comes from the session
+// (see useAuth) instead of a hardcoded constant.
 
-import { useCallback, useEffect, useState } from 'react'
-import { storage } from '@/lib/storage'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import { CachedStore } from '@/lib/cached-store'
+import { LocalStorageStore, type Storage } from '@/lib/storage'
+import { SupabaseStore } from '@/lib/supabase-store'
+import { createClient } from '@/lib/supabase/client'
 import type {
   Application,
   ApplicationPatch,
@@ -14,44 +18,70 @@ import type {
   NewApplication,
 } from '@/lib/types'
 
-const USER_ID = 'local' // v0: single local user
-
 export function useApplications() {
-  const [applications, setApplications] = useState<Application[]>([])
+  const { isGuest, loading: authLoading, effectiveUserId } = useAuth()
+
+  // Pick the store by mode. Memoized on [isGuest, effectiveUserId] so a single
+  // store instance is reused across renders until the auth mode/user changes.
+  //   - Guest: LocalStorageStore ONLY. No Supabase — an unauthenticated request
+  //     would just be rejected by RLS, so we never make it.
+  //   - Authed: CachedStore(SupabaseStore, LocalStorageStore) — remote is
+  //     authoritative, localStorage is a read-through/write-through cache.
+  const store = useMemo<Storage>(() => {
+    if (isGuest) return new LocalStorageStore()
+    return new CachedStore(new SupabaseStore(createClient()), new LocalStorageStore())
+    // effectiveUserId is in the dep list so a user switch rebuilds the store
+    // even if isGuest stays false (e.g. account A → account B).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGuest, effectiveUserId])
+
+  // Seed authed renders synchronously from the per-user cache for instant paint;
+  // refresh() reconciles against the remote right after. Guests start empty and
+  // hydrate in the effect (LocalStorageStore can't read sync from this layer).
+  const [applications, setApplications] = useState<Application[]>(() => {
+    if (store instanceof CachedStore) return store.cachedList(effectiveUserId)
+    return []
+  })
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const list = await storage.list(USER_ID)
+    const list = await store.list(effectiveUserId)
     setApplications(list)
-  }, [])
+  }, [store, effectiveUserId])
 
+  // Don't fetch until auth resolves — before that there's no real userId and a
+  // guest/authed decision hasn't been made. Once authLoading is false we load
+  // once and clear `loading` only after the first read resolves.
+  const loadedFor = useRef<string | null>(null)
   useEffect(() => {
-    // localStorage read is sync but storage API is async (Supabase-ready),
-    // so we await and clear loading once hydrated client-side. setState lands
-    // in the async .finally callback, not the effect body — safe by intent.
+    if (authLoading) return
+    // Re-run on store/user change (account switch, guest→authed).
+    setLoading(true)
+    loadedFor.current = effectiveUserId
+    // setState lands in the async .finally callback, not the effect body.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh().finally(() => setLoading(false))
-  }, [refresh])
+  }, [authLoading, refresh, effectiveUserId])
 
   const add = useCallback(
     async (input: NewApplication) => {
-      const created = await storage.add(USER_ID, input)
+      const created = await store.add(effectiveUserId, input)
       // Optimistic prepend (list is newest-first) — avoids a full re-read.
       setApplications((prev) => [created, ...prev])
       return created
     },
-    []
+    [store, effectiveUserId]
   )
 
   const update = useCallback(
     async (id: string, patch: ApplicationPatch) => {
-      const updated = await storage.update(USER_ID, id, patch)
+      const updated = await store.update(effectiveUserId, id, patch)
       // Swap in place — no re-sort. Toggling the checkbox keeps the row exactly
       // where it is (no jump), even though appliedAt may have been re-stamped.
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
       return updated
     },
-    []
+    [store, effectiveUserId]
   )
 
   // Status transition helper. Marking 'applied' re-stamps appliedAt to now so
@@ -68,10 +98,13 @@ export function useApplications() {
     [update]
   )
 
-  const remove = useCallback(async (id: string) => {
-    await storage.remove(USER_ID, id)
-    setApplications((prev) => prev.filter((a) => a.id !== id))
-  }, [])
+  const remove = useCallback(
+    async (id: string) => {
+      await store.remove(effectiveUserId, id)
+      setApplications((prev) => prev.filter((a) => a.id !== id))
+    },
+    [store, effectiveUserId]
+  )
 
   return { applications, loading, add, update, setStatus, remove, refresh }
 }

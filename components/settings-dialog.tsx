@@ -7,8 +7,10 @@
 // There's no Save button; the footer just dismisses.
 
 import { useTheme } from 'next-themes'
-import { Settings, Check } from 'lucide-react'
+import { Settings, Check, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
+import { createClient } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogTrigger,
@@ -82,7 +84,14 @@ function ThemeCard({
 export function SettingsDialog() {
   const { theme, setTheme } = useTheme()
   const { settings, update } = useSettings()
+  const { user } = useAuth()
   const active = theme ?? DEFAULT_THEME
+
+  // Sign out only makes sense for an authed user — the auth listener in
+  // AuthProvider flips `user` to null reactively, so no manual redirect needed.
+  const handleSignOut = () => {
+    void createClient().auth.signOut()
+  }
 
   return (
     <Dialog>
@@ -140,6 +149,14 @@ export function SettingsDialog() {
           </div>
         </DialogPanel>
         <DialogFooter>
+          {/* Sign out — authed only. Hidden in guest mode (nothing to sign out
+              of). Placed left of Done so the dismiss action stays rightmost. */}
+          {user && (
+            <Button variant="outline" onClick={handleSignOut} className="mr-auto">
+              <LogOut />
+              Sign out
+            </Button>
+          )}
           <DialogClose render={<Button variant="outline" />}>Done</DialogClose>
         </DialogFooter>
       </DialogPopup>

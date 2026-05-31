@@ -5,6 +5,7 @@
 // (Placeholder for post-auth nav, user menu, etc.)
 
 import { SettingsDialog } from '@/components/settings-dialog'
+import { LoginCta } from '@/components/login-cta'
 import { AuthProvider } from '@/components/auth-provider'
 
 export default function AppLayout({
@@ -26,7 +27,10 @@ export default function AppLayout({
             </h1>
             <span className="text-[10px] text-muted-foreground">keep the streak</span>
           </div>
-          <SettingsDialog />
+          <div className="flex items-center gap-2">
+            <LoginCta />
+            <SettingsDialog />
+          </div>
         </header>
         {children}
       </div>

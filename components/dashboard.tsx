@@ -11,6 +11,7 @@ import { QuickAdd } from '@/components/quick-add/quick-add'
 import { Timeline } from '@/components/timeline/timeline'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SettingsDialog } from '@/components/settings-dialog'
+import { LoginCta } from '@/components/login-cta'
 
 export function Dashboard() {
   const { applications, loading, add, setStatus, remove } = useApplications()
@@ -58,7 +59,10 @@ export function Dashboard() {
           </h1>
           <span className="text-[10px] text-muted-foreground">keep the streak</span>
         </div>
-        <SettingsDialog />
+        <div className="flex items-center gap-2">
+          <LoginCta />
+          <SettingsDialog />
+        </div>
       </header>
       {/* LEFT (wider): quick-add pinned, timeline scrolls below. pt-20 clears
           the overlay header so the input aligns with the right panel content. */}
