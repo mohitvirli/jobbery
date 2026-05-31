@@ -101,21 +101,24 @@ export function SettingsDialog() {
         <DialogPanel className="flex flex-col gap-6">
           {/* Weekly target — auto-saved on each step. */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="weekly-target">Weekly target</Label>
-            <NumberField
-              id="weekly-target"
-              value={settings.weeklyTarget}
-              onValueChange={(v) => update({ weeklyTarget: v ?? 1 })}
-              min={1}
-              max={99}
-              size="sm"
-            >
-              <NumberFieldGroup>
-                <NumberFieldDecrement />
-                <NumberFieldInput />
-                <NumberFieldIncrement />
-              </NumberFieldGroup>
-            </NumberField>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="weekly-target">Weekly target</Label>
+              <NumberField
+                id="weekly-target"
+                value={settings.weeklyTarget}
+                onValueChange={(v) => update({ weeklyTarget: v ?? 1 })}
+                min={1}
+                max={99}
+                size="sm"
+                className="w-32"
+              >
+                <NumberFieldGroup>
+                  <NumberFieldDecrement />
+                  <NumberFieldInput />
+                  <NumberFieldIncrement />
+                </NumberFieldGroup>
+              </NumberField>
+            </div>
             <p className="text-xs text-muted-foreground">
               Applications you aim to send each week.
             </p>
