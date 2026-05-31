@@ -65,9 +65,6 @@ export function LoginPreview() {
             />
           </div>
         </motion.div>
-
-        {/* Top fade so the cards emerge softly instead of as a hard rectangle. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-background to-transparent" />
       </div>
     </div>
   )
