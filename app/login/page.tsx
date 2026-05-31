@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LoginPreview } from '@/components/login-preview'
 
 type Provider = 'google' | 'github'
 
@@ -91,8 +92,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-6">
-      <div className="flex w-full max-w-sm flex-col gap-8">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6">
+      <div className="relative z-10 flex w-full max-w-sm flex-col gap-8">
         <div className="flex flex-col gap-1.5 text-center">
           <h1 className="font-mono text-xl font-semibold tracking-tight">
             <span className="text-muted-foreground">[</span>
@@ -181,6 +182,8 @@ export default function LoginPage() {
           Skip for now →
         </button>
       </div>
+
+      <LoginPreview />
     </main>
   )
 }
