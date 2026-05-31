@@ -32,9 +32,9 @@ export function LoginPreview() {
       <div className="relative mt-auto h-72 w-[760px] translate-y-24">
         {/* Dark card — behind, rotated left. */}
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 28, rotate: -6 }}
-          animate={{ opacity: 1, y: 0, rotate: -6 }}
-          transition={{ duration: 0.6, ease: 'easeOut', delay: 0.05 }}
+          initial={reduce ? false : { y: 180, rotate: 0 }}
+          animate={{ y: 0, rotate: -6 }}
+          transition={{ duration: 0.7, ease: 'easeOut', delay: 0.75 }}
           className="absolute left-6 top-4 origin-bottom"
         >
           <div className={cardClass}>
@@ -50,9 +50,9 @@ export function LoginPreview() {
 
         {/* Light card — front, rotated right, lifted. */}
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 32, rotate: 4 }}
-          animate={{ opacity: 1, y: 0, rotate: 4 }}
-          transition={{ duration: 0.6, ease: 'easeOut', delay: 0.12 }}
+          initial={reduce ? false : { y: 200, rotate: 0 }}
+          animate={{ y: 0, rotate: 4 }}
+          transition={{ duration: 0.7, ease: 'easeOut', delay: 0.85 }}
           className="absolute right-6 top-0 origin-bottom"
         >
           <div className={cardClass}>

@@ -3,12 +3,39 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
+import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LoginPreview } from '@/components/login-preview'
 
 type Provider = 'google' | 'github'
+
+// Staggered entrance. The page container cascades its children; the auth-options
+// block is itself a container so its rows cascade once it appears.
+const container: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.08 } },
+}
+const item: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+}
+const optionsGroup: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: 'easeOut', staggerChildren: 0.07, when: 'beforeChildren' },
+  },
+}
+// Skip is a top-level container child, so the page stagger would land it ~0.24s —
+// while the form rows inside optionsGroup are still cascading. Give it an explicit
+// delay so it settles last, after the form and just before the preview cards.
+const skipItem: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut', delay: 0.6 } },
+}
 
 // lucide dropped brand glyphs, so the provider marks are inline SVGs.
 function GoogleIcon() {
@@ -44,6 +71,7 @@ function GitHubIcon() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const reduce = useReducedMotion()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [pending, setPending] = useState<'google' | 'github' | 'magic' | null>(
@@ -93,8 +121,13 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6">
-      <div className="relative z-10 flex w-full max-w-sm flex-col gap-8">
-        <div className="flex flex-col gap-1.5 text-center">
+      <motion.div
+        className="relative z-10 flex w-full max-w-sm flex-col gap-8"
+        variants={container}
+        initial={reduce ? false : 'hidden'}
+        animate="visible"
+      >
+        <motion.div variants={item} className="flex flex-col gap-1.5 text-center">
           <h1 className="font-mono text-xl font-semibold tracking-tight">
             <span className="text-muted-foreground">[</span>
             jobbery
@@ -103,20 +136,23 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">
             Sign in to sync your applications across devices.
           </p>
-        </div>
+        </motion.div>
 
         {sent ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-input bg-background p-4 text-center">
+          <motion.div
+            variants={item}
+            className="flex flex-col gap-2 rounded-lg border border-input bg-background p-4 text-center"
+          >
             <p className="text-sm font-medium">Check your email</p>
             <p className="text-sm text-muted-foreground">
               We sent a magic link to{' '}
               <span className="font-medium text-foreground">{email}</span>. Click
               it to sign in.
             </p>
-          </div>
+          </motion.div>
         ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex gap-2">
+          <motion.div variants={optionsGroup} className="flex flex-col gap-4">
+            <motion.div variants={item} className="flex gap-2">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -137,15 +173,19 @@ export default function LoginPage() {
                 GitHub
                 <GitHubIcon />
               </Button>
-            </div>
+            </motion.div>
 
-            <div className="flex items-center gap-3">
+            <motion.div variants={item} className="flex items-center gap-3">
               <span className="h-px flex-1 bg-border" />
               <span className="text-xs text-muted-foreground">or</span>
               <span className="h-px flex-1 bg-border" />
-            </div>
+            </motion.div>
 
-            <form className="flex items-center gap-2" onSubmit={sendMagicLink}>
+            <motion.form
+              variants={item}
+              className="flex items-center gap-2"
+              onSubmit={sendMagicLink}
+            >
               <Input
                 type="email"
                 required
@@ -166,22 +206,23 @@ export default function LoginPage() {
               >
                 <ArrowRight />
               </Button>
-            </form>
+            </motion.form>
 
             {error && (
               <p className="text-center text-sm text-destructive">{error}</p>
             )}
-          </div>
+          </motion.div>
         )}
 
-        <button
+        <motion.button
+          variants={skipItem}
           type="button"
           onClick={skipForNow}
           className="cursor-pointer text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Skip for now →
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       <LoginPreview />
     </main>
