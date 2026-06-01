@@ -11,6 +11,11 @@ import { LoginPreview } from '@/components/login-preview'
 
 type Provider = 'google' | 'github'
 
+// Pragmatic email shape check — one @, a dot in the domain, no spaces. Not
+// RFC-perfect (no client check is); blocks obvious typos before hitting the API.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const isValidEmail = (v: string) => EMAIL_RE.test(v.trim())
+
 // Staggered entrance. The page container cascades its children; the auth-options
 // block is itself a container so its rows cascade once it appears.
 const container: Variants = {
@@ -97,10 +102,14 @@ export default function LoginPage() {
   async function sendMagicLink(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    if (!isValidEmail(email)) {
+      setError('Enter a valid email address.')
+      return
+    }
     setPending('magic')
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: email.trim(),
       options: { emailRedirectTo: `${location.origin}/auth/callback` },
     })
     setPending(null)
@@ -192,15 +201,19 @@ export default function LoginPage() {
                 size="lg"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (error) setError(null)
+                }}
                 disabled={pending !== null}
+                aria-invalid={email.length > 0 && !isValidEmail(email)}
                 className="min-w-0 flex-1"
               />
               <Button
                 type="submit"
                 size="icon-lg"
                 loading={pending === 'magic'}
-                disabled={pending !== null || email.length === 0}
+                disabled={pending !== null || !isValidEmail(email)}
                 aria-label="Send magic link"
                 title="Send magic link"
               >
