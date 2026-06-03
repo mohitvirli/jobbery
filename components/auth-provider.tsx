@@ -90,6 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     // Stay reactive: login, logout, token refresh all flow through here.
+    // Supabase fires SIGNED_IN on every tab focus/visibility change with a
+    // fresh session object. Bail when the user id hasn't actually changed so
+    // the context value stays referentially stable and the tree doesn't
+    // re-render (which caused a visible flash on tab focus).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -98,7 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearGuestMode()
         runMigration(nextUser, supabase)
       }
-      setUser(nextUser)
+      setUser((prev) => {
+        if (prev?.id === nextUser?.id) return prev
+        return nextUser
+      })
       setLoading(false)
     })
 
