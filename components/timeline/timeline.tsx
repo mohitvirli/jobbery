@@ -1,7 +1,7 @@
 'use client'
 
 // Reverse-chronological timeline of logged applications, bucketed into date
-// groups (Today / Yesterday / This week / Earlier). A vertical rail with a node
+// groups (Today / Yesterday / then one group per calendar day). A vertical rail with a node
 // per entry runs down the left of each group. Each row: company, role, relative
 // time, status, optional JD link. A row can flip between 'To apply' and
 // 'Applied'; flipping to Applied re-stamps the date (handled in the hook), so the
@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ExternalLink, Trash2 } from 'lucide-react'
-import { relativeTime, startOfDay, startOfWeek, addDays } from '@/lib/date'
+import { relativeTime, startOfDay, addDays, toDayKey } from '@/lib/date'
 import type { Application, ApplicationStatus } from '@/lib/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Empty, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
@@ -240,24 +240,23 @@ function Row({
   )
 }
 
-// Chronological buckets, newest first. Applications arrive already sorted
-// newest-first from the hook, so per-bucket order is preserved by a plain filter.
-const BUCKETS = [
-  { key: 'today', label: 'Today' },
-  { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week', label: 'This week' },
-  { key: 'earlier', label: 'Earlier' },
-] as const
-
-function bucketOf(iso: string): (typeof BUCKETS)[number]['key'] {
+// Date grouping: Today, Yesterday, then one group per calendar day (no "This
+// week"/"Earlier" coalescing — older entries keep their own dated group). The
+// key is a stable per-day string; the label is what shows in the gutter.
+function groupMeta(iso: string): { key: string; label: string } {
   const d = startOfDay(new Date(iso)).getTime()
   const today = startOfDay(new Date()).getTime()
   const yesterday = startOfDay(addDays(new Date(), -1)).getTime()
-  const weekStart = startOfWeek(new Date()).getTime()
-  if (d >= today) return 'today'
-  if (d >= yesterday) return 'yesterday'
-  if (d >= weekStart) return 'week'
-  return 'earlier'
+  if (d >= today) return { key: 'today', label: 'Today' }
+  if (d >= yesterday) return { key: 'yesterday', label: 'Yesterday' }
+  const date = new Date(iso)
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  const label = date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+  return { key: toDayKey(iso), label }
 }
 
 export function Timeline({
@@ -280,10 +279,21 @@ export function Timeline({
     )
   }
 
-  const groups = BUCKETS.map((b) => ({
-    ...b,
-    items: applications.filter((a) => bucketOf(a.appliedAt) === b.key),
-  })).filter((g) => g.items.length > 0)
+  // Walk the (already newest-first) list once, appending to a group the first
+  // time its key appears. Insertion order = display order, so groups and the
+  // rows inside them stay newest-first without any re-sort.
+  const groups: { key: string; label: string; items: Application[] }[] = []
+  const indexByKey = new Map<string, number>()
+  for (const app of applications) {
+    const { key, label } = groupMeta(app.appliedAt)
+    let i = indexByKey.get(key)
+    if (i === undefined) {
+      i = groups.length
+      indexByKey.set(key, i)
+      groups.push({ key, label, items: [] })
+    }
+    groups[i].items.push(app)
+  }
 
   return (
     <div className="relative flex flex-col gap-5">
