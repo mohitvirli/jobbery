@@ -339,9 +339,9 @@
   body {
     @apply bg-background text-foreground;
     /* Satoshi reads lighter than the old Circular Medium at the same nominal
-       weight, so lift the default body weight from 400 to 500. Elements with an
-       explicit font-* utility (font-semibold, font-bold…) still win over this. */
-    font-weight: 500;
+       weight, so lift the default body weight to 600. Elements with an explicit
+       font-* utility (font-normal, font-semibold, font-bold…) still win. */
+    font-weight: 600;
   }
   code, kbd, samp, pre {
     font-family: var(--font-mono);

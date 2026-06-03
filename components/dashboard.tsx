@@ -57,7 +57,7 @@ export function Dashboard() {
             jobbery
             <span className="text-muted-foreground">]</span>
           </h1>
-          <span className="text-[10px] text-muted-foreground">keep the streak</span>
+          <span className="text-xs text-muted-foreground">keep the streak</span>
         </div>
         <div className="flex items-center gap-2">
           <LoginCta />
