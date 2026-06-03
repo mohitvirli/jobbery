@@ -36,7 +36,7 @@ function Stat({
   return (
     <div className="flex flex-col gap-1 rounded-xl border bg-card px-5 py-4">
       <span
-        className="text-2xl font-semibold tabular-nums tracking-tight"
+        className="text-2xl font-bold tabular-nums tracking-tight"
         data-accent={accent || undefined}
       >
         {value}

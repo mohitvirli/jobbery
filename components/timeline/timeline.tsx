@@ -175,7 +175,7 @@ function Row({
             <StrikeText
               struck={!isToApply}
               className={
-                'shrink-0 text-sm font-medium decoration-1 underline-offset-2' +
+                'shrink-0 text-sm font-bold decoration-1 underline-offset-2' +
                 (app.url ? ' group-hover/link:underline' : '')
               }
             >
