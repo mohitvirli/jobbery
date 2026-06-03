@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
@@ -83,6 +83,20 @@ export default function LoginPage() {
     null,
   )
   const [error, setError] = useState<string | null>(null)
+
+  // Cross-tab magic link: the link opens a new tab that verifies the OTP, sets
+  // the (shared) session cookie, and broadcasts "signed-in" from /auth/complete.
+  // This tab — still sitting on the login screen — listens for that and navigates
+  // into the app. The (app) layout's AuthProvider then reads the cookie on mount,
+  // so no token is passed between tabs; only a nudge to navigate.
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel('jobbery:auth')
+    channel.onmessage = (event: MessageEvent) => {
+      if (event.data?.type === 'signed-in') router.replace('/')
+    }
+    return () => channel.close()
+  }, [router])
 
   async function signInWithProvider(provider: Provider) {
     setError(null)

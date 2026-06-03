@@ -28,11 +28,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Magic-link / email OTP verification.
+  // Magic-link / email OTP verification. The link opens in a NEW tab (the email
+  // client's doing), so on success we don't land the user here — we send them to
+  // /auth/complete, which signals the original tab (via BroadcastChannel) to pick
+  // up the now-set session cookie and then closes itself. `next` rides along so a
+  // user who can't auto-close has a "continue here" target.
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      const complete = new URL('/auth/complete', origin)
+      if (next !== '/') complete.searchParams.set('next', next)
+      return NextResponse.redirect(complete)
     }
   }
 

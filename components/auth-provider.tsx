@@ -109,9 +109,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
+    // Cross-tab sign-in: when a magic link completes in another tab, that tab's
+    // /auth/complete broadcasts here. The session cookie is already set (shared
+    // across same-origin tabs), so we just re-read it via getUser() and update.
+    // onAuthStateChange does NOT fire on its own for a cookie change made by
+    // another tab, so this explicit re-check is what lights up the original tab.
+    const channel =
+      typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel('jobbery:auth')
+        : null
+    if (channel) {
+      channel.onmessage = (event: MessageEvent) => {
+        if (event.data?.type !== 'signed-in') return
+        supabase.auth.getUser().then(({ data }) => {
+          if (!active) return
+          if (data.user) {
+            clearGuestMode()
+            runMigration(data.user, supabase)
+          }
+          setUser((prev) => (prev?.id === data.user?.id ? prev : data.user))
+          setLoading(false)
+        })
+      }
+    }
+
     return () => {
       active = false
       subscription.unsubscribe()
+      channel?.close()
     }
   }, [])
 
