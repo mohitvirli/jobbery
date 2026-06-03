@@ -54,6 +54,6 @@ export const config = {
   // static assets. /login and /auth (the OAuth/magic-link callback) MUST be
   // excluded or the redirect round-trip loops.
   matcher: [
-    '/((?!login|auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!login|auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|ttf|otf|woff|woff2|eot)$).*)',
   ],
 }

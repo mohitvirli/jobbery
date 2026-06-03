@@ -4,9 +4,12 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const interHeading = Inter({subsets:['latin'],variable:'--font-heading'});
+// Inter is the fallback for Circular (proprietary, referenced via local() in
+// globals.css). These feed the second slot of the --font-sans/--font-heading
+// stacks so anyone without Circular installed still gets Inter, not system UI.
+const interHeading = Inter({subsets:['latin'],variable:'--font-inter-heading'});
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({subsets:['latin'],variable:'--font-inter'});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

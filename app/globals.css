@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Satoshi (Indian Type Foundry, free under the ITF Free Font License). Single
+   self-hosted variable woff2 covers the real 300–900 weight range, so every
+   font-weight renders its true Satoshi glyphs — proper Light/Regular/Medium/
+   Bold/Black, no faux-bold synthesis. Inter stays as the load-failure fallback
+   in the --font-sans / --font-heading stacks below. */
+@font-face {
+  font-family: "Satoshi";
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/satoshi-variable.woff2") format("woff2");
+}
+
 /* `dark:` utilities trigger under the base `.dark` class AND every imported
    dark palette theme, so component-level dark tweaks (shadows, overlays) apply
    to the ported themes too. Light palettes are intentionally excluded. */
@@ -8,7 +21,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: "Satoshi", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --animate-skeleton: skeleton 2s -1s infinite linear;
   --animate-caret-blink: 1s ease-out infinite caret-blink;
@@ -16,7 +29,7 @@
   --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
   --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
   --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
-  --font-heading: var(--font-heading);
+  --font-heading: "Satoshi", var(--font-inter-heading), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -325,6 +338,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Satoshi reads lighter than the old Circular Medium at the same nominal
+       weight, so lift the default body weight from 400 to 500. Elements with an
+       explicit font-* utility (font-semibold, font-bold…) still win over this. */
+    font-weight: 500;
   }
   code, kbd, samp, pre {
     font-family: var(--font-mono);
