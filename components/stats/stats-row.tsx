@@ -1,8 +1,9 @@
 'use client'
 
 // Three momentum metrics: current streak, this-week vs target, lifetime total.
-// Computed from the applications array (pure functions in lib/date) so this
-// component stays presentational.
+// Computed from the applications array via computeStats (lib/stats) so this
+// component stays presentational — and so the MCP server, which calls the same
+// composer, can never report numbers that disagree with this row.
 //
 // Motivation layers on top of the raw counts:
 //   - Current streak shows a "Best N" personal best to chase.
@@ -11,14 +12,7 @@
 
 import { useMemo } from 'react'
 import { Flame, Target } from 'lucide-react'
-import {
-  currentStreak,
-  longestStreak,
-  thisWeekCount,
-  streakAtRisk,
-  openCount,
-  applyToday,
-} from '@/lib/date'
+import { computeStats } from '@/lib/stats'
 import type { Application } from '@/lib/types'
 import { useSettings } from '@/hooks/use-settings'
 
@@ -51,16 +45,17 @@ export function StatsRow({ applications }: { applications: Application[] }) {
   const {
     settings: { weeklyTarget },
   } = useSettings()
-  const { streak, best, week, open, today, atRisk, total } = useMemo(
-    () => ({
-      streak: currentStreak(applications),
-      best: longestStreak(applications),
-      week: thisWeekCount(applications),
-      open: openCount(applications),
-      today: applyToday(applications, weeklyTarget),
-      atRisk: streakAtRisk(applications),
-      total: applications.length,
-    }),
+  // No timeZone argument: in the browser the process zone already IS the user's.
+  const {
+    currentStreak: streak,
+    longestStreak: best,
+    thisWeekCount: week,
+    openCount: open,
+    applyToday: today,
+    streakAtRisk: atRisk,
+    total,
+  } = useMemo(
+    () => computeStats(applications, weeklyTarget),
     [applications, weeklyTarget]
   )
 

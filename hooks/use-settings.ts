@@ -56,16 +56,27 @@ export function useSettings() {
   // Authed: reconcile weeklyTarget against Supabase (authoritative). Mirror the
   // remote value into localStorage so the next paint is instant and other
   // consumers re-read via SETTINGS_EVENT.
+  //
+  // Same pass reports this browser's IANA zone if the stored one is missing or
+  // stale. The MCP server runs in UTC and reads that column to bucket days the
+  // way the dashboard does — this is the only place it ever gets written.
   useEffect(() => {
     if (authLoading || !remote || !user) return
     let active = true
     remote
       .get(user.id)
-      .then((weeklyTarget) => {
+      .then(({ weeklyTarget, timeZone }) => {
         if (!active) return
         // persist() updates the localStorage cache AND broadcasts, which fires
         // the `sync` listener above — no manual setState needed here.
         persist({ weeklyTarget })
+
+        const local = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (local && local !== timeZone) {
+          void remote.setTimeZone(user.id, local).catch(() => {
+            // Best-effort; the MCP server falls back to UTC without it.
+          })
+        }
       })
       .catch(() => {
         // Network/RLS failure — keep the cached localStorage value as-is.

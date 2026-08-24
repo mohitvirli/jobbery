@@ -53,7 +53,12 @@ export const config = {
   // Match all request paths except the ones that must stay public or are
   // static assets. /login and /auth (the OAuth/magic-link callback) MUST be
   // excluded or the redirect round-trip loops.
+  //
+  // /api/mcp is excluded because it carries its own auth: MCP clients send a
+  // bearer token, not a session cookie, and they need a 401 they can act on —
+  // this gate would hand them a 307 to an HTML login page instead. /api/tokens
+  // stays gated; it IS cookie-authed.
   matcher: [
-    '/((?!login|auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|ttf|otf|woff|woff2|eot)$).*)',
+    '/((?!login|auth|api/mcp|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|ttf|otf|woff|woff2|eot)$).*)',
   ],
 }

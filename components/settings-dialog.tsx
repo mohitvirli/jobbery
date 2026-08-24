@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { Settings, Check, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { McpTokens } from '@/components/settings/mcp-tokens'
 import { useAuth } from '@/hooks/use-auth'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -137,6 +138,10 @@ export function SettingsDialog() {
               Applications you aim to send each week.
             </p>
           </div>
+
+          {/* MCP tokens — authed only. Guests have no server-side data for an
+              MCP client to reach, so there's nothing to hand a token out for. */}
+          {user && <McpTokens />}
 
           {/* Theme — live-applied card grid, auto-saved. */}
           <div className="flex flex-col gap-2">
