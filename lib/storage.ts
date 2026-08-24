@@ -34,7 +34,10 @@ export class LocalStorageStore implements Storage {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     try {
-      return JSON.parse(raw) as Application[]
+      const parsed = JSON.parse(raw) as Application[]
+      // Rows written before createdAt existed only carry appliedAt; that value
+      // IS their log date, so backfill from it on read.
+      return parsed.map((a) => (a.createdAt ? a : { ...a, createdAt: a.appliedAt }))
     } catch {
       return []
     }
@@ -47,7 +50,8 @@ export class LocalStorageStore implements Storage {
   async list(userId: string): Promise<Application[]> {
     return this.readAll()
       .filter((a) => a.userId === userId)
-      .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)) // newest first
+      // Newest-first by LOG date — re-stamping appliedAt must not reorder.
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }
 
   async add(userId: string, input: NewApplication): Promise<Application> {
@@ -59,6 +63,7 @@ export class LocalStorageStore implements Storage {
       role: input.role ?? null,
       url: input.url ?? null,
       note: input.note ?? null,
+      createdAt: now,
       appliedAt: now,
       status: input.status ?? 'applied', // default = logging a submission
       updatedAt: now,

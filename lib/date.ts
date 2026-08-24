@@ -231,6 +231,18 @@ export function thisWeekCount(apps: Application[], timeZone?: string): number {
   ).length
 }
 
+// "12 Jul" (same year) / "12 Jul 2024". Absolute calendar date, used where a
+// relative time would be ambiguous — e.g. an applied date on a row whose
+// timeline slot is its (different) log date.
+export function shortDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+  })
+}
+
 // "2h ago", "3d ago", "just now". Compact relative time for the timeline.
 export function relativeTime(iso: string): string {
   const then = new Date(iso).getTime()

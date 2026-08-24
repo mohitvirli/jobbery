@@ -20,6 +20,7 @@ interface ApplicationRow {
   role: string | null
   url: string | null
   note: string | null
+  created_at: string
   applied_at: string
   status: string
   updated_at: string
@@ -37,6 +38,7 @@ function toApplication(row: ApplicationRow): Application {
     role: row.role,
     url: row.url,
     note: row.note,
+    createdAt: row.created_at,
     appliedAt: row.applied_at,
     status: row.status as Application['status'],
     updatedAt: row.updated_at,
@@ -54,6 +56,9 @@ function toInsertRow(
     role: input.role ?? null,
     url: input.url ?? null,
     note: input.note ?? null,
+    // Logged and submitted at the same instant on create; only appliedAt is
+    // re-stamped later, when a queued row flips to 'applied'.
+    created_at: now,
     applied_at: now,
     status: input.status ?? 'applied',
     updated_at: now,
@@ -83,7 +88,9 @@ export class SupabaseStore implements Storage {
       .from('applications')
       .select('*')
       .eq('user_id', userId)
-      .order('applied_at', { ascending: false })
+      // Timeline order is log order — created_at, not applied_at, so flipping
+      // a row to 'applied' never moves it.
+      .order('created_at', { ascending: false })
 
     if (error) throw new Error(`SupabaseStore.list failed: ${error.message}`)
     return (data as ApplicationRow[]).map(toApplication)

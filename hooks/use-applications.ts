@@ -78,8 +78,8 @@ export function useApplications() {
   const update = useCallback(
     async (id: string, patch: ApplicationPatch) => {
       const updated = await store.update(effectiveUserId, id, patch)
-      // Swap in place — no re-sort. Toggling the checkbox keeps the row exactly
-      // where it is (no jump), even though appliedAt may have been re-stamped.
+      // Swap in place — no re-sort needed. Ordering is by createdAt, which no
+      // patch touches, so a re-read would produce the same order anyway.
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)))
       return updated
     },
@@ -89,6 +89,8 @@ export function useApplications() {
   // Status transition helper. Marking 'applied' re-stamps appliedAt to now so
   // the heatmap/streak credit the day you actually applied; moving back to
   // 'to_apply' leaves the date untouched (it's just re-queued, not un-applied).
+  // createdAt is never patched, so the row stays in its original timeline group
+  // and simply starts showing the applied date instead of a relative time.
   const setStatus = useCallback(
     (id: string, status: ApplicationStatus) =>
       update(

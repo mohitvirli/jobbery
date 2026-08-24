@@ -34,7 +34,10 @@ function readCache(userId: string): Application[] {
   const raw = window.localStorage.getItem(cacheKey(userId))
   if (!raw) return []
   try {
-    return JSON.parse(raw) as Application[]
+    const parsed = JSON.parse(raw) as Application[]
+    // Entries cached before createdAt existed carry only appliedAt, which was
+    // their log date at the time — backfill so the timeline can group them.
+    return parsed.map((a) => (a.createdAt ? a : { ...a, createdAt: a.appliedAt }))
   } catch {
     return []
   }
@@ -94,6 +97,7 @@ export class CachedStore implements Storage {
       role: input.role ?? null,
       url: input.url ?? null,
       note: input.note ?? null,
+      createdAt: now,
       appliedAt: now,
       status: input.status ?? 'applied',
       updatedAt: now,

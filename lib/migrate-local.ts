@@ -45,6 +45,7 @@ interface ApplicationInsertRow {
   role: string | null
   url: string | null
   note: string | null
+  created_at: string
   applied_at: string
   status: string
   updated_at: string
@@ -172,6 +173,7 @@ export async function migrateLocalData(
       role: r.role ?? null,
       url: r.url ?? null,
       note: r.note ?? null,
+      created_at: r.createdAt ?? r.appliedAt,
       applied_at: r.appliedAt,
       status: r.status,
       updated_at: r.updatedAt ?? r.appliedAt,

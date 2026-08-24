@@ -81,6 +81,7 @@ function compact(a: Application) {
     url: a.url,
     note: a.note,
     status: a.status,
+    createdAt: a.createdAt,
     appliedAt: a.appliedAt,
   }
 }

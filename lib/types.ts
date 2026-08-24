@@ -14,13 +14,21 @@ export type Application = {
   company: string
   role: string | null
   url: string | null
-  appliedAt: string // ISO timestamp of when the application was logged
+  createdAt: string // ISO timestamp of when the row was logged/saved
+  appliedAt: string // ISO timestamp of when the application was submitted
   note: string | null
 
   // Reserved for v1. Not surfaced in the v0 UI.
   status: ApplicationStatus
-  updatedAt: string // ISO; mirrors appliedAt until status edits exist
+  updatedAt: string // ISO; bumped on every write
 }
+
+// `createdAt` never moves once written: it fixes the row's slot in the
+// timeline. `appliedAt` is re-stamped when a queued row flips to 'applied' so
+// the heatmap/streak credit the day of submission — that's why the two are
+// separate fields. On a 'to_apply' row appliedAt is a placeholder (equal to
+// createdAt) and is never read: every analytics helper filters to 'applied'
+// rows first.
 
 // Shape accepted by the storage layer when creating a record. The store owns
 // id/timestamp generation so callers can't desync those invariants. `status`

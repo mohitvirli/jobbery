@@ -2,17 +2,18 @@
 
 // Reverse-chronological timeline of logged applications, bucketed into date
 // groups (Today / Yesterday / then one group per calendar day). A vertical rail with a node
-// per entry runs down the left of each group. Each row: company, role, relative
-// time, status, optional JD link. A row can flip between 'To apply' and
-// 'Applied'; flipping to Applied re-stamps the date (handled in the hook), so the
-// heatmap credits the day you applied.
+// per entry runs down the left of each group. Each row: company, role, date,
+// status, optional JD link. Groups key off `createdAt` (the log date), so a row
+// never moves once written. Flipping a row to 'Applied' re-stamps `appliedAt`
+// (handled in the hook) so the heatmap credits the day you applied — the row
+// stays put and shows that submission date instead of a relative time.
 // Framer `layout` + fade/slide so new and re-ordered rows animate.
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ExternalLink, Trash2 } from 'lucide-react'
-import { relativeTime, startOfDay, addDays, toDayKey } from '@/lib/date'
+import { relativeTime, shortDate, startOfDay, addDays, toDayKey } from '@/lib/date'
 import type { Application, ApplicationStatus } from '@/lib/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Empty, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
@@ -100,6 +101,12 @@ function Row({
   onDelete: (id: string) => void
 }) {
   const isToApply = app.status === 'to_apply'
+  // Applied → the submission date (absolute); queued → time since logging.
+  const timeStamp = isToApply ? app.createdAt : app.appliedAt
+  const timeLabel = isToApply ? relativeTime(app.createdAt) : shortDate(app.appliedAt)
+  const timeTitle = isToApply
+    ? `Saved ${new Date(app.createdAt).toLocaleString()}`
+    : `Applied ${new Date(app.appliedAt).toLocaleString()}`
   // Applied rows recede — dim the whole row so open (to-apply) ones stand out.
   const restOpacity = isToApply ? 1 : 0.45
 
@@ -125,7 +132,7 @@ function Row({
         {/* Rail node = the checkbox. Sits above the continuous rail line (drawn
             on the <ul>). No backing ring — the line runs unbroken behind every
             node; on hover the transparent backing reveals the full line.
-            Toggling re-stamps the date. */}
+            Toggling re-stamps the applied date; the row keeps its slot. */}
         <span
           className={
             'relative z-10 flex w-5 shrink-0 items-center justify-center' +
@@ -196,15 +203,19 @@ function Row({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {/* Relative time, swapped for an open-link affordance on hover. */}
+          {/* Applied rows show WHEN they were submitted, as an absolute date:
+              the row sits in its log-date group, so "1mo ago" there would read
+              as the group's date. Queued rows have no submission yet, so they
+              keep relative time off the log date. Swapped for an open-link
+              affordance on hover. */}
           {app.url ? (
             <span className="relative shrink-0">
               <time
                 className="text-xs tabular-nums text-muted-foreground group-hover:opacity-0"
-                dateTime={app.appliedAt}
-                title={new Date(app.appliedAt).toLocaleString()}
+                dateTime={timeStamp}
+                title={timeTitle}
               >
-                {relativeTime(app.appliedAt)}
+                {timeLabel}
               </time>
               <ExternalLink
                 aria-hidden
@@ -214,10 +225,10 @@ function Row({
           ) : (
             <time
               className="shrink-0 text-xs tabular-nums text-muted-foreground"
-              dateTime={app.appliedAt}
-              title={new Date(app.appliedAt).toLocaleString()}
+              dateTime={timeStamp}
+              title={timeTitle}
             >
-              {relativeTime(app.appliedAt)}
+              {timeLabel}
             </time>
           )}
 
@@ -285,7 +296,7 @@ export function Timeline({
   const groups: { key: string; label: string; items: Application[] }[] = []
   const indexByKey = new Map<string, number>()
   for (const app of applications) {
-    const { key, label } = groupMeta(app.appliedAt)
+    const { key, label } = groupMeta(app.createdAt)
     let i = indexByKey.get(key)
     if (i === undefined) {
       i = groups.length
