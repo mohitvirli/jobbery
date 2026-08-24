@@ -85,11 +85,24 @@ export function addDays(d: Date, n: number): Date {
   return c
 }
 
-// Only 'applied' (completed) rows count toward momentum analytics. A saved
-// 'to_apply' row is a queued intent, not a submission, so it must not credit
-// the streak, heatmap, weekly count, or total.
+// Only SUBMITTED rows count toward momentum analytics. Two statuses mean the
+// application never went out and so must not credit the streak, heatmap,
+// weekly count, or total:
+//
+//   'to_apply'  a queued intent, not a submission
+//   'expired'   the posting closed before it was submitted
+//
+// Everything else — 'applied', 'in_progress', 'rejected' — means it went out,
+// and a submission can't un-happen. Testing for `=== 'applied'` alone would
+// silently delete a streak day the moment a row advanced.
+//
+// KNOWN EDGE: moving an already-submitted row to 'expired' does retroactively
+// drop its day. 'expired' is defined here as a backlog outcome (see
+// isSubmitted in lib/status.ts); rows that went out and went quiet belong in
+// 'rejected'. Distinguishing the two cases exactly would need a nullable
+// submittedAt column rather than inferring from status.
 export function appliedOnly(apps: Application[]): Application[] {
-  return apps.filter((a) => a.status === 'applied')
+  return apps.filter((a) => a.status !== 'to_apply' && a.status !== 'expired')
 }
 
 // Count of open (queued, not-yet-applied) rows — the backlog to work through.

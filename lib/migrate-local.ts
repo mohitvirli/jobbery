@@ -19,6 +19,7 @@
 //   from the local rows, rather than going through SupabaseStore.add.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeStatus } from './status'
 import type { Application } from './types'
 import { UserSettingsStore } from './user-settings-store'
 import { DEFAULT_SETTINGS } from './settings'
@@ -45,6 +46,7 @@ interface ApplicationInsertRow {
   role: string | null
   url: string | null
   note: string | null
+  tags: string[]
   created_at: string
   applied_at: string
   status: string
@@ -173,9 +175,10 @@ export async function migrateLocalData(
       role: r.role ?? null,
       url: r.url ?? null,
       note: r.note ?? null,
+      tags: r.tags ?? [],
       created_at: r.createdAt ?? r.appliedAt,
       applied_at: r.appliedAt,
-      status: r.status,
+      status: normalizeStatus(r.status),
       updated_at: r.updatedAt ?? r.appliedAt,
     }))
 

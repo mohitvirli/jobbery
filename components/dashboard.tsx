@@ -4,17 +4,36 @@
 // passes it down. Client component because everything here is interactive and
 // reads localStorage; the route/page stays a thin server entry.
 
+import { useMemo, useState } from 'react'
 import { useApplications } from '@/hooks/use-applications'
 import { Heatmap } from '@/components/heatmap/heatmap'
 import { StatsRow } from '@/components/stats/stats-row'
 import { QuickAdd } from '@/components/quick-add/quick-add'
 import { Timeline } from '@/components/timeline/timeline'
+import {
+  ActiveFilters,
+  TimelineToolbar,
+} from '@/components/timeline/timeline-filters'
+import { EMPTY_FILTER, filterApplications, isFilterActive } from '@/lib/filter'
+import { allTags } from '@/lib/tags'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SettingsDialog } from '@/components/settings-dialog'
 import { LoginCta } from '@/components/login-cta'
 
 export function Dashboard() {
-  const { applications, loading, add, setStatus, remove } = useApplications()
+  const { applications, loading, add, setStatus, setTags, remove } = useApplications()
+
+  // Filter state lives here rather than inside Timeline because the split
+  // matters: only the timeline gets the narrowed list. Heatmap and StatsRow
+  // keep the full one — they report overall momentum, and having a search for
+  // "acme" quietly rewrite your streak would be a lie.
+  const [filter, setFilter] = useState(EMPTY_FILTER)
+  const visible = useMemo(
+    () => filterApplications(applications, filter),
+    [applications, filter]
+  )
+  const tagOptions = useMemo(() => allTags(applications), [applications])
+  const filtering = isFilterActive(filter)
 
   // Pre-hydration: localStorage isn't readable on the server, so show a
   // skeleton until the client reads it. Prevents a flash of empty state.
@@ -50,16 +69,34 @@ export function Dashboard() {
           Brand on the left (aligned to the input), theme toggle pinned to the
           right edge (aligned to the stats). inset-x-8 matches the grid's px-8 so
           edges line up with the content. Mobile header lives in the route layout. */}
-      <header className="hidden lg:absolute lg:inset-x-8 lg:top-0 lg:z-20 lg:flex lg:h-20 lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-mono text-lg font-semibold tracking-tight">
-            <span className="text-muted-foreground">[</span>
-            jobbery
-            <span className="text-muted-foreground">]</span>
-          </h1>
-          <span className="text-xs text-muted-foreground">keep the streak</span>
+      {/* The header mirrors the page grid (same columns, same px-8) rather than
+          being one flex row, so its left cell ends exactly where the timeline
+          column ends. That's what keeps the search pinned to the right edge of
+          the timeline instead of drifting out over the activity panel. pr-12
+          matches the content column's own padding, so the icon lines up with
+          the right edge of the quick-add field below it. */}
+      <header className="hidden lg:absolute lg:inset-x-8 lg:top-0 lg:z-20 lg:grid lg:h-20 lg:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="flex items-center justify-between pr-12">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="font-mono text-lg font-semibold tracking-tight">
+              <span className="text-muted-foreground">[</span>
+              jobbery
+              <span className="text-muted-foreground">]</span>
+            </h1>
+            <span className="text-xs text-muted-foreground">keep the streak</span>
+          </div>
+          {applications.length > 0 && (
+            <TimelineToolbar
+              filter={filter}
+              onChange={setFilter}
+              tagOptions={tagOptions}
+              // The header instance owns '/' — it's the one on a device with a
+              // keyboard, and only one listener may claim the key.
+              enableShortcut
+            />
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 pl-8">
           <LoginCta />
           <SettingsDialog />
         </div>
@@ -67,13 +104,40 @@ export function Dashboard() {
       {/* LEFT (wider): quick-add pinned, timeline scrolls below. pt-20 clears
           the overlay header so the input aligns with the right panel content. */}
       <div className="order-2 flex min-w-0 flex-col gap-8 lg:order-1 lg:min-h-0 lg:overflow-hidden lg:pb-8 lg:pr-12 lg:pt-20">
-        <div className="lg:shrink-0">
+        {/* Pinned: capture on top, then the filter state. Both stay put while
+            the timeline below them scrolls — a chip line explaining why the
+            list is short is useless if it scrolls away with it.
+
+            The toolbar itself is header-mounted on desktop; on mobile the
+            header lives in the route layout, out of reach of this state, so a
+            second instance renders here instead. Only one is ever visible. */}
+        <div className="flex flex-col gap-4 lg:shrink-0">
           <QuickAdd onAdd={add} />
+          {applications.length > 0 && (
+            <TimelineToolbar
+              filter={filter}
+              onChange={setFilter}
+              tagOptions={tagOptions}
+              // justify-end mirrors the desktop header, where the search sits
+              // at the right edge of the timeline column.
+              className="justify-end lg:hidden"
+            />
+          )}
+          <ActiveFilters
+            filter={filter}
+            onChange={setFilter}
+            matchCount={visible.length}
+            totalCount={applications.length}
+          />
         </div>
         <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <Timeline
-            applications={applications}
+            applications={visible}
+            tagSuggestions={tagOptions}
+            filtered={filtering}
+            onClearFilters={() => setFilter(EMPTY_FILTER)}
             onSetStatus={setStatus}
+            onSetTags={setTags}
             onDelete={remove}
           />
         </div>

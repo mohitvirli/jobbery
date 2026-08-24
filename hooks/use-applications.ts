@@ -11,6 +11,7 @@ import { CachedStore } from '@/lib/cached-store'
 import { LocalStorageStore, type Storage } from '@/lib/storage'
 import { SupabaseStore } from '@/lib/supabase-store'
 import { createClient } from '@/lib/supabase/client'
+import { shouldStampAppliedAt } from '@/lib/status'
 import type {
   Application,
   ApplicationPatch,
@@ -86,19 +87,30 @@ export function useApplications() {
     [store, effectiveUserId]
   )
 
-  // Status transition helper. Marking 'applied' re-stamps appliedAt to now so
-  // the heatmap/streak credit the day you actually applied; moving back to
-  // 'to_apply' leaves the date untouched (it's just re-queued, not un-applied).
+  // Status transition helper. `appliedAt` is stamped ONLY on the first move out
+  // of the backlog (see shouldStampAppliedAt) — advancing applied -> interview
+  // must not re-stamp it, or the heatmap credit jumps to the interview date.
+  // That rule needs the row's CURRENT status, so we read it from the loaded
+  // list; an unknown id falls through to a plain status patch.
   // createdAt is never patched, so the row stays in its original timeline group
   // and simply starts showing the applied date instead of a relative time.
   const setStatus = useCallback(
-    (id: string, status: ApplicationStatus) =>
-      update(
+    (id: string, status: ApplicationStatus) => {
+      const current = applications.find((a) => a.id === id)
+      const stamp = current ? shouldStampAppliedAt(current.status, status) : false
+      return update(
         id,
-        status === 'applied'
-          ? { status, appliedAt: new Date().toISOString() }
-          : { status }
-      ),
+        stamp ? { status, appliedAt: new Date().toISOString() } : { status }
+      )
+    },
+    [update, applications]
+  )
+
+  // Tags are replaced wholesale rather than added/removed individually: the
+  // editor always holds the full list, and a whole-array write is idempotent
+  // (no read-modify-write race between two rapid edits).
+  const setTags = useCallback(
+    (id: string, tags: string[]) => update(id, { tags }),
     [update]
   )
 
@@ -110,5 +122,5 @@ export function useApplications() {
     [store, effectiveUserId]
   )
 
-  return { applications, loading, add, update, setStatus, remove, refresh }
+  return { applications, loading, add, update, setStatus, setTags, remove, refresh }
 }

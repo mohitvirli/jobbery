@@ -97,6 +97,7 @@ export class CachedStore implements Storage {
       role: input.role ?? null,
       url: input.url ?? null,
       note: input.note ?? null,
+      tags: input.tags ?? [],
       createdAt: now,
       appliedAt: now,
       status: input.status ?? 'applied',

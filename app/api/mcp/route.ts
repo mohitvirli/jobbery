@@ -24,6 +24,9 @@ import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js'
 import { z } from 'zod'
 import { verifyToken } from '@/lib/api-tokens'
 import { InvalidJobUrlError, resolveJobDetails } from '@/lib/job-metadata'
+import { APPLICATION_STATUSES } from '@/lib/types'
+import { normalizeTags } from '@/lib/tags'
+import { shouldStampAppliedAt } from '@/lib/status'
 import { computeStats } from '@/lib/stats'
 import { SupabaseStore } from '@/lib/supabase-store'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -80,6 +83,7 @@ function compact(a: Application) {
     role: a.role,
     url: a.url,
     note: a.note,
+    tags: a.tags,
     status: a.status,
     createdAt: a.createdAt,
     appliedAt: a.appliedAt,
@@ -97,10 +101,23 @@ function stores() {
 // --- tools -----------------------------------------------------------------
 
 const statusSchema = z
-  .enum(['applied', 'to_apply'])
+  .enum(APPLICATION_STATUSES)
   .describe(
-    "'applied' = already submitted (credits the streak and heatmap today); " +
-      "'to_apply' = saved to the backlog to submit later"
+    "Pipeline stage. Two do NOT credit the streak or heatmap, because the " +
+      "application never went out: 'to_apply' (saved to the backlog to submit " +
+      "later) and 'expired' (the posting closed before it was submitted). " +
+      "'applied' = submitted; 'in_progress' = submitted and moving (interview, " +
+      "offer, any live conversation); 'rejected' = submitted and turned down. " +
+      'Those three credit the day the application was originally submitted.'
+  )
+
+// Freeform labels. Normalized (lowercased, hyphenated, de-duplicated) so a
+// model writing "Remote" and a user typing "remote" land on the same tag.
+const tagsSchema = z
+  .array(z.string())
+  .describe(
+    'Freeform labels, e.g. ["remote", "referral"]. Lowercased and hyphenated on ' +
+      'write. Replaces the existing set when updating — send the full list.'
   )
 
 const handler = createMcpHandler(
@@ -119,16 +136,24 @@ const handler = createMcpHandler(
           role: z.string().nullish().describe('Job title, e.g. "Senior Backend Engineer"'),
           url: z.string().nullish().describe('Link to the job posting'),
           note: z.string().nullish().describe('Freeform note — referral, contact, salary…'),
+          tags: tagsSchema.optional(),
           status: statusSchema.default('applied'),
         },
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
       },
-      async ({ company, role, url, note, status }, extra) =>
+      async ({ company, role, url, note, tags, status }, extra) =>
         guard(async () => {
           const userId = requireUserId(extra)
           const { apps, settings } = stores()
 
-          const created = await apps.add(userId, { company, role, url, note, status })
+          const created = await apps.add(userId, {
+            company,
+            role,
+            url,
+            note,
+            tags: tags ? normalizeTags(tags) : [],
+            status,
+          })
 
           const [all, { weeklyTarget, timeZone }] = await Promise.all([
             apps.list(userId),
@@ -169,11 +194,14 @@ const handler = createMcpHandler(
             .string()
             .optional()
             .describe('Case-insensitive substring match on the company name'),
+          tags: tagsSchema
+            .optional()
+            .describe('Only rows carrying ALL of these tags'),
           limit: z.number().int().min(1).max(200).default(50),
         },
         annotations: { readOnlyHint: true },
       },
-      async ({ status, since, until, company, limit }, extra) =>
+      async ({ status, since, until, company, tags, limit }, extra) =>
         guard(async () => {
           const userId = requireUserId(extra)
           const { apps } = stores()
@@ -193,6 +221,11 @@ const handler = createMcpHandler(
           if (company) {
             const needle = company.toLowerCase()
             rows = rows.filter((a) => a.company.toLowerCase().includes(needle))
+          }
+          if (tags && tags.length > 0) {
+            // AND, matching the dashboard's tag filter: each extra tag narrows.
+            const wanted = normalizeTags(tags)
+            rows = rows.filter((a) => wanted.every((t) => a.tags.includes(t)))
           }
 
           return ok({
@@ -217,11 +250,12 @@ const handler = createMcpHandler(
           role: z.string().nullish(),
           url: z.string().nullish(),
           note: z.string().nullish(),
+          tags: tagsSchema.optional(),
           status: statusSchema.optional(),
         },
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
       },
-      async ({ id, company, role, url, note, status }, extra) =>
+      async ({ id, company, role, url, note, tags, status }, extra) =>
         guard(async () => {
           const userId = requireUserId(extra)
           const { apps } = stores()
@@ -231,12 +265,21 @@ const handler = createMcpHandler(
           if (role !== undefined) patch.role = role ?? null
           if (url !== undefined) patch.url = url ?? null
           if (note !== undefined) patch.note = note ?? null
+          if (tags !== undefined) patch.tags = normalizeTags(tags)
           if (status !== undefined) {
             patch.status = status
-            // Mirrors useApplications.setStatus: submitting re-stamps the date so
-            // the heatmap credits the day you actually applied. Re-queueing leaves
-            // it alone — that's not an un-apply.
-            if (status === 'applied') patch.appliedAt = new Date().toISOString()
+            // Mirrors useApplications.setStatus: only the first move OUT of the
+            // backlog stamps the date, so the heatmap credits the day the
+            // application actually went out. Advancing applied -> interview must
+            // not re-stamp, and re-queueing is not an un-apply.
+            //
+            // Needs the row's current status, so read it first. A missing row
+            // falls through to the update below, which produces the friendly
+            // "no application with id" error.
+            const current = (await apps.list(userId)).find((a) => a.id === id)
+            if (current && shouldStampAppliedAt(current.status, status)) {
+              patch.appliedAt = new Date().toISOString()
+            }
           }
 
           try {

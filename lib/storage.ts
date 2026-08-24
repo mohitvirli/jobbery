@@ -8,6 +8,7 @@
 // user-scoping in the data layer's signature from day one, so multi-user is an
 // implementation detail later, not an API change.
 
+import { normalizeStatus } from './status'
 import type { Application, ApplicationPatch, NewApplication } from './types'
 
 export interface Storage {
@@ -35,9 +36,17 @@ export class LocalStorageStore implements Storage {
     if (!raw) return []
     try {
       const parsed = JSON.parse(raw) as Application[]
-      // Rows written before createdAt existed only carry appliedAt; that value
-      // IS their log date, so backfill from it on read.
-      return parsed.map((a) => (a.createdAt ? a : { ...a, createdAt: a.appliedAt }))
+      // Backfill/repair fields written before the current shape:
+      //  - createdAt: rows predating the log/submit split only carry appliedAt,
+      //    and that value IS their log date.
+      //  - tags: always an array above this layer, so callers never guard.
+      return parsed.map((a) => ({
+        ...a,
+        createdAt: a.createdAt ?? a.appliedAt,
+        tags: a.tags ?? [],
+        // Rows saved under the old vocabulary still say 'interview'/'offer'.
+        status: normalizeStatus(a.status),
+      }))
     } catch {
       return []
     }
@@ -63,6 +72,7 @@ export class LocalStorageStore implements Storage {
       role: input.role ?? null,
       url: input.url ?? null,
       note: input.note ?? null,
+      tags: input.tags ?? [],
       createdAt: now,
       appliedAt: now,
       status: input.status ?? 'applied', // default = logging a submission
