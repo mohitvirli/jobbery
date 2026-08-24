@@ -6,6 +6,10 @@
 //   claude mcp add --transport http jobbery https://<host>/api/mcp \
 //     --header "Authorization: Bearer jbry_…"
 //
+// `x-api-key: jbry_…` is accepted as an equivalent. claude.ai custom connectors
+// reserve Authorization for OAuth and won't let you set it as a request header,
+// so the token has to arrive under a different name there.
+//
 // AUTH INVARIANT: the userId comes from the verified token and nothing else.
 // No tool takes a user id argument, and no handler may read one from its input.
 // The stores here run on the SERVICE Supabase client (RLS bypassed — there is no
@@ -360,12 +364,18 @@ const handler = createMcpHandler(
 // withMcpAuth answer 401 — there is deliberately no anonymous fallback.
 const authed = withMcpAuth(
   handler,
-  async (_req, bearerToken): Promise<AuthInfo | undefined> => {
-    if (!bearerToken) return undefined
+  async (req, bearerToken): Promise<AuthInfo | undefined> => {
+    // `Authorization: Bearer <token>` is the primary form. x-api-key is the
+    // fallback for claude.ai custom connectors: there, Authorization is
+    // reserved for OAuth and can't be set as a request header, so an
+    // API-key-style server has to accept the credential somewhere else.
+    // x-api-key is on Claude's header allowlist.
+    const token = bearerToken ?? req.headers.get('x-api-key') ?? undefined
+    if (!token) return undefined
 
     let verified: Awaited<ReturnType<typeof verifyToken>>
     try {
-      verified = await verifyToken(createServiceClient(), bearerToken)
+      verified = await verifyToken(createServiceClient(), token)
     } catch (err) {
       // withMcpAuth turns any throw into a flat 401, which would make a missing
       // SUPABASE_SECRET_KEY look exactly like a bad token. Log the real cause so
@@ -375,7 +385,7 @@ const authed = withMcpAuth(
     }
     if (!verified) return undefined
     return {
-      token: bearerToken,
+      token,
       clientId: verified.tokenId,
       scopes: [],
       extra: { userId: verified.userId },
