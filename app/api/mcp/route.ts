@@ -26,7 +26,7 @@ import { verifyToken } from '@/lib/api-tokens'
 import { InvalidJobUrlError, resolveJobDetails } from '@/lib/job-metadata'
 import { APPLICATION_STATUSES } from '@/lib/types'
 import { normalizeTags } from '@/lib/tags'
-import { shouldStampAppliedAt } from '@/lib/status'
+import { isSubmitted, shouldStampAppliedAt } from '@/lib/status'
 import { computeStats } from '@/lib/stats'
 import { SupabaseStore } from '@/lib/supabase-store'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -88,6 +88,15 @@ function compact(a: Application) {
     createdAt: a.createdAt,
     appliedAt: a.appliedAt,
   }
+}
+
+// The date a row should be filtered by. On a submitted row that's appliedAt —
+// when it actually went out. On one still queued or expired it never went out,
+// and appliedAt is a placeholder equal to createdAt that lib/types.ts says is
+// never read; comparing against it would answer "applied since Monday" with
+// rows that were merely logged then. createdAt is the honest date there.
+function activeAt(a: Application): string {
+  return isSubmitted(a.status) ? a.appliedAt : a.createdAt
 }
 
 function stores() {
@@ -185,11 +194,15 @@ const handler = createMcpHandler(
           since: z
             .string()
             .optional()
-            .describe('ISO date or timestamp — only rows applied on/after this'),
+            .describe(
+              'ISO date or timestamp — only rows active on/after this. For a ' +
+                'submitted row that means the date it was applied; for one still ' +
+                'queued or expired, the date it was logged.'
+            ),
           until: z
             .string()
             .optional()
-            .describe('ISO date or timestamp — only rows applied on/before this'),
+            .describe('ISO date or timestamp — the same, bounded from above'),
           company: z
             .string()
             .optional()
@@ -211,12 +224,12 @@ const handler = createMcpHandler(
           if (since) {
             const t = Date.parse(since)
             if (Number.isNaN(t)) throw new Error(`invalid \`since\` date: ${since}`)
-            rows = rows.filter((a) => Date.parse(a.appliedAt) >= t)
+            rows = rows.filter((a) => Date.parse(activeAt(a)) >= t)
           }
           if (until) {
             const t = Date.parse(until)
             if (Number.isNaN(t)) throw new Error(`invalid \`until\` date: ${until}`)
-            rows = rows.filter((a) => Date.parse(a.appliedAt) <= t)
+            rows = rows.filter((a) => Date.parse(activeAt(a)) <= t)
           }
           if (company) {
             const needle = company.toLowerCase()
@@ -268,10 +281,11 @@ const handler = createMcpHandler(
           if (tags !== undefined) patch.tags = normalizeTags(tags)
           if (status !== undefined) {
             patch.status = status
-            // Mirrors useApplications.setStatus: only the first move OUT of the
-            // backlog stamps the date, so the heatmap credits the day the
-            // application actually went out. Advancing applied -> interview must
-            // not re-stamp, and re-queueing is not an un-apply.
+            // Mirrors useApplications.setStatus: the date is stamped once, on
+            // the crossing from unsubmitted to submitted, so the heatmap credits
+            // the day the application actually went out. Advancing
+            // applied -> in_progress must not re-stamp, and re-queueing is not
+            // an un-apply.
             //
             // Needs the row's current status, so read it first. A missing row
             // falls through to the update below, which produces the friendly
