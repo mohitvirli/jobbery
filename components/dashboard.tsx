@@ -4,7 +4,7 @@
 // passes it down. Client component because everything here is interactive and
 // reads localStorage; the route/page stays a thin server entry.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApplications } from '@/hooks/use-applications'
 import { Heatmap } from '@/components/heatmap/heatmap'
 import { StatsRow } from '@/components/stats/stats-row'
@@ -14,7 +14,13 @@ import {
   ActiveFilters,
   TimelineToolbar,
 } from '@/components/timeline/timeline-filters'
-import { EMPTY_FILTER, filterApplications, isFilterActive } from '@/lib/filter'
+import {
+  EMPTY_FILTER,
+  filterApplications,
+  filterFromSearchParams,
+  filterToSearchParams,
+  isFilterActive,
+} from '@/lib/filter'
 import { allTags } from '@/lib/tags'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SettingsDialog } from '@/components/settings-dialog'
@@ -27,7 +33,29 @@ export function Dashboard() {
   // matters: only the timeline gets the narrowed list. Heatmap and StatsRow
   // keep the full one — they report overall momentum, and having a search for
   // "acme" quietly rewrite your streak would be a lie.
-  const [filter, setFilter] = useState(EMPTY_FILTER)
+  //
+  // Seeded from the query string so a reload keeps the view. Reading
+  // window.location directly (rather than useSearchParams) keeps this out of
+  // Next's router: no Suspense boundary to add, and no re-render per keystroke.
+  // Safe against hydration mismatch because the only thing rendered before the
+  // first effect runs is the loading skeleton, which ignores the filter.
+  const [filter, setFilter] = useState(() =>
+    typeof window === 'undefined'
+      ? EMPTY_FILTER
+      : filterFromSearchParams(window.location.search)
+  )
+
+  // Mirror the filter back into the URL. replaceState, not pushState: typing a
+  // six-character search would otherwise bury the previous page under six
+  // history entries.
+  useEffect(() => {
+    const query = filterToSearchParams(filter)
+    window.history.replaceState(
+      null,
+      '',
+      query ? `${window.location.pathname}?${query}` : window.location.pathname
+    )
+  }, [filter])
   const visible = useMemo(
     () => filterApplications(applications, filter),
     [applications, filter]

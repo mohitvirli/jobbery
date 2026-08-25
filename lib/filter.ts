@@ -6,8 +6,9 @@
 // no network. If the list ever outgrows that, this function is the seam to
 // swap for a server query — nothing else knows how filtering works.
 
+import { APPLICATION_STATUSES } from './types'
 import type { Application, ApplicationStatus } from './types'
-import { normalizeTag } from './tags'
+import { normalizeTag, normalizeTags } from './tags'
 
 export type TimelineFilter = {
   query: string
@@ -53,4 +54,45 @@ export function filterApplications(
     }
     return true
   })
+}
+
+// ---------------------------------------------------------------------------
+// URL round-trip
+//
+// The filter lives in the query string so a reload — or a link you send
+// yourself — lands on the same view. Only non-empty parts are written, so an
+// unfiltered timeline keeps a clean URL.
+// ---------------------------------------------------------------------------
+
+const PARAM_QUERY = 'q'
+const PARAM_STATUS = 'status'
+const PARAM_TAG = 'tag'
+
+export function filterToSearchParams(filter: TimelineFilter): string {
+  const params = new URLSearchParams()
+  const query = filter.query.trim()
+  if (query) params.set(PARAM_QUERY, query)
+  if (filter.statuses.length > 0) params.set(PARAM_STATUS, filter.statuses.join(','))
+  if (filter.tags.length > 0) params.set(PARAM_TAG, filter.tags.join(','))
+  return params.toString()
+}
+
+export function filterFromSearchParams(search: string): TimelineFilter {
+  const params = new URLSearchParams(search)
+
+  // A query string is user-editable text, so statuses are validated against the
+  // vocabulary rather than cast. An unknown value is dropped, not carried into
+  // the filter where it would silently match nothing.
+  const statuses = (params.get(PARAM_STATUS) ?? '')
+    .split(',')
+    .filter((s): s is ApplicationStatus =>
+      (APPLICATION_STATUSES as readonly string[]).includes(s)
+    )
+
+  return {
+    query: params.get(PARAM_QUERY) ?? '',
+    statuses,
+    // Same normalization as the tag editor, so ?tag=Remote finds 'remote'.
+    tags: normalizeTags((params.get(PARAM_TAG) ?? '').split(',')),
+  }
 }

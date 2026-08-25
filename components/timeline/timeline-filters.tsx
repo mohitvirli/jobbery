@@ -2,9 +2,11 @@
 
 // Search + filter controls, split into two pieces that live in different places:
 //
-//   TimelineToolbar — the controls. Sits in the header on desktop, beside the
-//     brand. The search starts collapsed to a single icon and expands on click,
-//     so the resting header stays as quiet as it was before search existed.
+//   TimelineToolbar — search and the status/tag filter menu, in that order.
+//     Sits at the right edge of the timeline column: in the header on desktop,
+//     above the list on mobile. The search starts collapsed to a single icon
+//     and expands leftward on click, so it grows into empty space instead of
+//     pushing the filter button around.
 //   ActiveFilters  — the chip line. Sits directly above the timeline, because
 //     it explains why the list below it is short. Renders nothing when no
 //     filter is applied.
@@ -197,18 +199,12 @@ export function TimelineToolbar({
   onChange,
   tagOptions,
   enableShortcut = false,
-  // The status/tag filter menu is built and wired but switched off for now —
-  // search alone covers the common case, and the header stays a single icon.
-  // Flip this to true to bring it back; ActiveFilters below already renders
-  // status and tag chips, so nothing else needs changing.
-  showFilters = false,
   className,
 }: {
   filter: TimelineFilter
   onChange: (next: TimelineFilter) => void
   tagOptions: string[]
   enableShortcut?: boolean
-  showFilters?: boolean
   className?: string
 }) {
   const chipCount = filter.statuses.length + filter.tags.length
@@ -230,7 +226,6 @@ export function TimelineToolbar({
         enableShortcut={enableShortcut}
       />
 
-      {showFilters && (
       <Popover>
         <PopoverTrigger
           render={
@@ -291,7 +286,6 @@ export function TimelineToolbar({
           )}
         </PopoverPopup>
       </Popover>
-      )}
     </div>
   )
 }
