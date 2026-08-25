@@ -12,8 +12,12 @@
 -- not add a constraint here — the app owns the vocabulary, and a constraint
 -- would turn every future stage into a migration.
 
-alter table public.applications
-  add column tags text[] not null default '{}';
+-- IF NOT EXISTS on both: these migrations are applied by hand in the Supabase
+-- SQL editor (see README), where a re-run is easy to do by accident and a bare
+-- `add column` aborts the whole batch — taking the index with it.
 
-create index applications_tags_idx
+alter table public.applications
+  add column if not exists tags text[] not null default '{}';
+
+create index if not exists applications_tags_idx
   on public.applications using gin (tags);
